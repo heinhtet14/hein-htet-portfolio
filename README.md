@@ -23,12 +23,12 @@ npm run check      # astro check (needs TypeScript 6)
 npm run build
 ```
 
-`ask` needs `ANTHROPIC_API_KEY` (see `.env.example`). Without it the endpoint returns 503
+`ask` needs `GEMINI_API_KEY` (see `.env.example`). Without it the endpoint returns 503
 and the rest of the site works.
 
 ## Deploy (Vercel)
 
-Import the repo, set `ANTHROPIC_API_KEY` in project env vars, and deploy. Set your real
+Import the repo, set `GEMINI_API_KEY` in project env vars, and deploy. Set your real
 domain in `astro.config.mjs` (`site`). The rate limiter in `ask.ts` is in-memory per
 instance; move it to Vercel KV or Upstash if the endpoint gets abused.
 

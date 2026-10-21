@@ -344,8 +344,8 @@ export const projects: Project[] = [
     universes: ["frontend", "ai", "devops"],
     summary:
       "Static Astro with one serverless function: the terminal's `ask` answers questions about me, grounded only in this site's data.",
-    points: ["No UI framework, keyboard-first terminal", "Rate-limited Claude endpoint, no chat history stored"],
-    stack: ["Astro", "TypeScript", "Vercel", "Claude API"],
+    points: ["No UI framework, keyboard-first terminal", "Rate-limited Gemini endpoint, no chat history stored"],
+    stack: ["Astro", "TypeScript", "Vercel", "Gemini API"],
   },
 ];
 
