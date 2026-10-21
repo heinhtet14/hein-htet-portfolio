@@ -19,6 +19,24 @@ document.getElementById("theme")?.addEventListener("click", () => {
   }
 });
 
+// Header dropdowns: one open at a time, closed by picking a link, clicking away or Escape.
+const menus = [...document.querySelectorAll<HTMLDetailsElement>("details.menu")];
+const closeMenus = (except?: HTMLDetailsElement) => menus.forEach((m) => m !== except && (m.open = false));
+for (const menu of menus) {
+  menu.addEventListener("toggle", () => menu.open && closeMenus(menu));
+  menu.querySelectorAll("a").forEach((a) => a.addEventListener("click", () => (menu.open = false)));
+}
+document.addEventListener("click", (e) => {
+  if (!(e.target as Element).closest("details.menu")) closeMenus();
+});
+document.addEventListener("keydown", (e) => {
+  if (e.key !== "Escape") return;
+  const open = menus.find((m) => m.open);
+  if (!open) return;
+  open.open = false;
+  open.querySelector("summary")?.focus();
+});
+
 const clock = document.getElementById("clock");
 if (clock) {
   const tick = () =>

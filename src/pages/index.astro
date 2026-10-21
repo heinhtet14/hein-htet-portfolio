@@ -61,12 +61,30 @@ const clientData = {
       <a class="brand" href="#top">HH-01</a>
       <span class="rev">rev 2026.10</span>
       <nav aria-label="Sections">
-        <a href="#focus">focus</a>
-        <a href="#stack">stack</a>
-        <a href="#work">work</a>
-        <a href="#experience">experience</a>
-        <a href="#archive">archive</a>
-        <a href="/blog/">blog</a>
+        <details class="menu" name="nav">
+          <summary>about</summary>
+          <div>
+            <a href="#focus">focus</a>
+            <a href="#stack">stack</a>
+            <a href="#activity">activity</a>
+          </div>
+        </details>
+        <details class="menu" name="nav">
+          <summary>work</summary>
+          <div>
+            <a href="#work">projects</a>
+            <a href="#experience">experience</a>
+            <a href="#archive">archive</a>
+          </div>
+        </details>
+        <details class="menu" name="nav">
+          <summary>writing</summary>
+          <div>
+            <a href="#writing">latest</a>
+            <a href="/blog/">all posts</a>
+            <a href="/rss.xml">rss</a>
+          </div>
+        </details>
         <a href="#terminal">terminal</a>
         <a href="#contact">contact</a>
       </nav>
@@ -112,27 +130,45 @@ const clientData = {
 
       <section id="focus" aria-labelledby="focus-h">
         <h2 class="eyebrow" id="focus-h">01 Focus <span>what I care about most</span></h2>
-        <div class="focus">
+        <ol class="acc">
           {
             interests.map((it, i) => (
-              <div>
-                <span class="pin">PIN {String(i + 1).padStart(2, "0")}</span>
-                <h3>{it.name}</h3>
-                <p>{it.line}</p>
-                <p class="ev">{it.evidence}</p>
-              </div>
+              <li>
+                <details>
+                  <summary>
+                    <span class="lead">PIN {String(i + 1).padStart(2, "0")}</span>
+                    <h3>{it.name}</h3>
+                    <span class="sub">{it.line}</span>
+                    <span class="plus" aria-hidden="true" />
+                  </summary>
+                  <div class="more">
+                    <p class="ev">{it.evidence}</p>
+                  </div>
+                </details>
+              </li>
             ))
           }
-        </div>
+        </ol>
       </section>
 
       <section id="stack" aria-labelledby="stack-h">
         <h2 class="eyebrow" id="stack-h">02 Stack <span>languages and tools</span></h2>
-        <div class="stack-groups">
+        <ol class="acc">
           {
             stackGroups.map((g) => (
-              <div class="stack-group">
-                <h3>{g.name}</h3>
+              <li>
+                <details>
+                  <summary>
+                    <span class="lead">{String(g.items.length).padStart(2, "0")}</span>
+                    <h3>{g.name}</h3>
+                    <span class="sub peek" aria-hidden="true">
+                      {g.items.slice(0, 8).map((name) => (
+                        <Logo name={name} size={14} />
+                      ))}
+                    </span>
+                    <span class="plus" aria-hidden="true" />
+                  </summary>
+                  <div class="more">
                 <ul class="tiles">
                   {g.items.map((name) => (
                     <li style={`--brand:${brandColor(name)}`}>
@@ -141,10 +177,12 @@ const clientData = {
                     </li>
                   ))}
                 </ul>
-              </div>
+                  </div>
+                </details>
+              </li>
             ))
           }
-        </div>
+        </ol>
       </section>
 
       <section id="work" aria-labelledby="work-h">
@@ -212,37 +250,59 @@ const clientData = {
 
       <section id="experience" aria-labelledby="exp-h">
         <h2 class="eyebrow" id="exp-h">04 Experience <span>where I've been</span></h2>
-        <ol class="roles">
+        <ol class="acc roles">
           {
             roles.map((r) => (
               <li>
-                <div class="when">{r.period}</div>
-                <div>
-                  <h3>{r.org}</h3>
-                  <div class="title">
-                    {r.title} · {r.place}
+                <details>
+                  <summary>
+                    <span class="lead">{r.period}</span>
+                    <h3>{r.org}</h3>
+                    <span class="sub">
+                      {r.title} · {r.place}
+                    </span>
+                    <span class="plus" aria-hidden="true" />
+                  </summary>
+                  <div class="more">
+                    <ul>
+                      {r.points.map((pt) => (
+                        <li>{pt}</li>
+                      ))}
+                    </ul>
                   </div>
-                  <ul>
-                    {r.points.map((pt) => (
-                      <li>{pt}</li>
-                    ))}
-                  </ul>
-                </div>
+                </details>
               </li>
             ))
           }
+          <li>
+            <details>
+              <summary>
+                <span class="lead">education</span>
+                <h3>{profile.education.school}</h3>
+                <span class="sub">{profile.education.degree}</span>
+                <span class="plus" aria-hidden="true" />
+              </summary>
+              <div class="more">
+                <p>
+                  {profile.education.degree}, {profile.education.note}
+                </p>
+              </div>
+            </details>
+          </li>
+          <li>
+            <details>
+              <summary>
+                <span class="lead">also</span>
+                <h3>Honours and community</h3>
+                <span class="sub">{profile.honors.length} items</span>
+                <span class="plus" aria-hidden="true" />
+              </summary>
+              <div class="more">
+                <ul>{profile.honors.map((h) => <li>{h}</li>)}</ul>
+              </div>
+            </details>
+          </li>
         </ol>
-        <div class="aside">
-          <div>
-            <h3>Education</h3>
-            <p>{profile.education.school}</p>
-            <p>{profile.education.degree}, {profile.education.note}</p>
-          </div>
-          <div>
-            <h3>Also</h3>
-            <ul>{profile.honors.map((h) => <li>{h}</li>)}</ul>
-          </div>
-        </div>
       </section>
 
       <section id="activity" aria-labelledby="activity-h">
@@ -288,14 +348,20 @@ const clientData = {
 
       <section id="archive" aria-labelledby="archive-h">
         <h2 class="eyebrow" id="archive-h">06 Archive <span>2017–2021, before the edge</span></h2>
-        <ol class="archive">
+        <ol class="acc archive">
           {
             archive.map((a) => (
               <li>
-                <div class="when">{a.year}</div>
-                <div>
-                  <h3>{a.title}</h3>
-                  <div class="title">{a.role}</div>
+                <details>
+                  <summary>
+                    <span class="lead">{a.year}</span>
+                    <h3>{a.title}</h3>
+                    <span class="sub">
+                      {a.role} · {a.photos.length} photo{a.photos.length === 1 ? "" : "s"}
+                    </span>
+                    <span class="plus" aria-hidden="true" />
+                  </summary>
+                  <div class="more">
                   <p>{a.summary}</p>
                   <ul class="shots">
                     {a.photos.map((ph) => (
@@ -306,7 +372,8 @@ const clientData = {
                       </li>
                     ))}
                   </ul>
-                </div>
+                  </div>
+                </details>
               </li>
             ))
           }
