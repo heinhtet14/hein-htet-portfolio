@@ -4,7 +4,7 @@
 // Scroll position drives the camera; only small idle motions autoplay, and they stop under
 // prefers-reduced-motion. Camera keys and captions live in src/data/world-path.ts.
 import * as THREE from "three";
-import { KEYS, POS, type V3 } from "../data/world-path";
+import { KEYS, POS, RING_BACK, portals, type V3 } from "../data/world-path";
 
 type Mat = THREE.LineBasicMaterial | THREE.LineDashedMaterial | THREE.PointsMaterial | THREE.SpriteMaterial | THREE.MeshBasicMaterial;
 
@@ -170,7 +170,8 @@ export function mountWorld(canvas: HTMLCanvasElement, opts: { reduced: boolean }
     (scene.fog as THREE.Fog).color.copy(bg);
   }
 
-  const edges = (geo: THREE.BufferGeometry, mat: THREE.LineBasicMaterial) => new THREE.LineSegments(new THREE.EdgesGeometry(geo), mat);
+  const edges = (geo: THREE.BufferGeometry, mat: THREE.LineBasicMaterial, angle = 1) =>
+    new THREE.LineSegments(new THREE.EdgesGeometry(geo, angle), mat);
   const box = (w: number, h: number, d: number, mat: THREE.LineBasicMaterial) => edges(new THREE.BoxGeometry(w, h, d), mat);
   const segs = (pts: number[], mat: THREE.LineBasicMaterial) => {
     const g = new THREE.BufferGeometry();
@@ -363,68 +364,218 @@ export function mountWorld(canvas: HTMLCanvasElement, opts: { reduced: boolean }
     return g;
   }
 
-  // ---------- 1. Edge chip ----------
-  {
+  // ---------- solid parts: background-filled faces under the edges, so hidden lines drop out ----------
+  const FACE = face();
+  const solid = (w: number, h: number, d: number, alpha = 1) => {
+    const geo = new THREE.BoxGeometry(w, h, d);
     const g = new THREE.Group();
-    g.position.copy(v3(POS.chip));
-    g.add(box(26, 0.4, 17, line()));
+    g.add(new THREE.Mesh(geo, FACE), edges(geo, line(alpha)));
+    return g;
+  };
+  const drum = (r: number, h: number, alpha = 1) => {
+    const geo = new THREE.CylinderGeometry(r, r, h, 28);
+    const g = new THREE.Group();
+    g.add(new THREE.Mesh(geo, FACE), edges(geo, line(alpha), 30));
+    return g;
+  };
+  const put = <T extends THREE.Object3D>(o: T, x: number, y: number, z: number) => (o.position.set(x, y, z), o);
+  const ring = (r: number, mat: THREE.LineBasicMaterial, n = 96) => {
+    const l = new THREE.LineLoop(
+      new THREE.BufferGeometry().setFromPoints(Array.from({ length: n }, (_, i) => new THREE.Vector3(Math.cos((i / n) * Math.PI * 2) * r, Math.sin((i / n) * Math.PI * 2) * r, 0))),
+      mat,
+    );
+    if (mat instanceof THREE.LineDashedMaterial) l.computeLineDistances();
+    return l;
+  };
+  // A hole seen from above: a flat ring on the board.
+  const hole = (x: number, z: number, y: number) => {
+    const r = ring(0.22, line(0.6), 20);
+    r.rotation.x = -Math.PI / 2;
+    return put(r, x, y, z);
+  };
+  // A 2×20 pin header along x, centred on (x, z), pins standing up from the board top `y`.
+  const header = (x: number, z: number, y: number) => {
+    const g = new THREE.Group();
+    g.add(put(solid(6.5, 0.3, 0.68), x, y + 0.15, z));
+    const pins: number[] = [];
+    for (let i = 0; i < 20; i++)
+      for (const dz of [-0.16, 0.16]) {
+        const px = x - 3.04 + i * 0.32;
+        pins.push(px, y + 0.3, z + dz, px, y + 0.85, z + dz);
+      }
+    g.add(segs(pins, line(0.8)));
+    return g;
+  };
+  // A port on the board edge: its body plus the opening(s) on the outward (+z) face.
+  const port = (w: number, h: number, d: number, slots: [number, number, number][] = []) => {
+    const g = solid(w, h, d);
+    for (const [sw, sh, sy] of slots) g.add(put(box(sw, sh, 0.01, line(0.7)), 0, sy, d / 2 + 0.01));
+    return g;
+  };
+  // Faint copper on the board surface, routed in right angles like the real thing.
+  const traces = (w: number, d: number, y: number, n: number) => {
     const tr: number[] = [];
-    for (let i = 0; i < 90; i++) {
-      let x = (rnd() - 0.5) * 24, z = (rnd() - 0.5) * 15;
-      const y = 0.21;
+    for (let i = 0; i < n; i++) {
+      let x = (rnd() - 0.5) * w, z = (rnd() - 0.5) * d;
       for (let k = 0; k < 3; k++) {
-        const nx = k % 2 ? x : x * 0.55, nz = k % 2 ? z * 0.6 : z;
+        const nx = k % 2 ? x : THREE.MathUtils.clamp(x + (rnd() - 0.5) * w * 0.5, -w / 2, w / 2);
+        const nz = k % 2 ? THREE.MathUtils.clamp(z + (rnd() - 0.5) * d * 0.5, -d / 2, d / 2) : z;
         tr.push(x, y, z, nx, y, nz);
         x = nx;
         z = nz;
       }
     }
-    g.add(segs(tr, line(0.35)));
-    const mod = box(11, 0.35, 7.5, line());
-    mod.position.y = 0.6;
-    g.add(mod);
-    for (let i = 0; i < 16; i++) {
-      const fin = box(0.08, 2.2, 6.6, line(0.35));
-      fin.position.set(-5 + i * 0.28, 1.9, 0);
-      g.add(fin);
-    }
-    const soc = box(3, 0.3, 3, line());
-    soc.position.set(2.2, 0.95, 0);
-    g.add(soc);
-    const pins: number[] = [];
-    for (let i = 0; i < 12; i++)
-      for (const s of [-1, 1]) {
-        const o = -1.4 + i * 0.25;
-        pins.push(2.2 + o, 0.8, 1.7 * s, 2.2 + 1.7 * s, 0.8, o);
+    return segs(tr, line(0.22));
+  };
+
+  // Packets running along a world-space polyline (rails, deploy links).
+  function runner(path: THREE.Vector3[], n: number, size: number, speed: number) {
+    const lens = path.slice(1).map((p, i) => p.distanceTo(path[i]));
+    const total = lens.reduce((a, b) => a + b, 0);
+    const arr = new Float32Array(n * 3);
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute("position", new THREE.BufferAttribute(arr, 3));
+    const pts = new THREE.Points(geo, dots(size));
+    pts.frustumCulled = false; // positions move every frame; the initial bounds would be wrong
+    const off = rnd(), tmp = new THREE.Vector3();
+    tickers.push((t) => {
+      for (let j = 0; j < n; j++) {
+        let d = (((t * speed) / total + off + j / n) % 1) * total;
+        let i = 0;
+        while (i < lens.length - 1 && d > lens[i]) d -= lens[i++];
+        tmp.copy(path[i]).lerp(path[i + 1], Math.min(1, d / lens[i]));
+        arr.set([tmp.x, tmp.y, tmp.z], j * 3);
       }
-    g.add(points(pins, dots(0.08)));
+      geo.attributes.position.needsUpdate = true;
+    });
+    return pts;
+  }
+  const polyline = (path: THREE.Vector3[], mat: THREE.LineBasicMaterial) => {
+    const flat: number[] = [];
+    for (let i = 0; i < path.length - 1; i++) flat.push(...path[i].toArray(), ...path[i + 1].toArray());
+    return segs(flat, mat);
+  };
+
+  // ---------- 1. Edge: Jetson Nano and a Rockchip board, one model deployed to both ----------
+  {
+    const g = new THREE.Group();
+    g.position.copy(v3(POS.chip));
+
+    // NVIDIA Jetson Nano developer kit: carrier, module under a finned heatsink and fan,
+    // the port row along the front, the 40-pin header along the back.
+    const jet = new THREE.Group();
+    jet.position.set(-9, 0, 0);
+    const JT = 0.2; // carrier top
+    jet.add(put(solid(12.5, 0.2, 10), 0, 0.1, 0));
+    jet.add(traces(12, 9.4, JT + 0.005, 46));
+    for (const [x, z] of [[-5.7, -4.4], [5.7, -4.4], [-5.7, 4.4], [5.7, 4.4]]) jet.add(hole(x, z, JT + 0.01));
+    jet.add(put(solid(8.6, 0.12, 5.4), 0, 0.85, -1.4)); // compute module (SO-DIMM)
+    for (const [x, z] of [[-4, -3.8], [4, -3.8], [-4, 1], [4, 1]]) jet.add(put(drum(0.12, 0.6, 0.6), x, 0.5, z));
+    jet.add(put(solid(7.6, 0.35, 5), 0, 1.09, -1.4)); // heatsink base
+    for (let i = 0; i < 15; i++) jet.add(put(solid(0.1, 2.5, 5, 0.85), -3.5 + i * 0.5, 2.5, -1.4));
+    const FAN_Y = 3.95;
+    jet.add(put(solid(4.6, 0.4, 4.6), 0, FAN_Y, -1.4));
+    const fan = new THREE.Group();
+    fan.position.set(0, FAN_Y + 0.21, -1.4);
+    const fr = ring(2.05, line(0.9));
+    fr.rotation.x = -Math.PI / 2;
+    fan.add(fr);
+    const blades: number[] = [];
+    for (let b = 0; b < 7; b++) {
+      const a0 = (b / 7) * Math.PI * 2;
+      for (let k = 0; k < 6; k++) {
+        const r0 = 0.55 + (k / 6) * 1.35, r1 = 0.55 + ((k + 1) / 6) * 1.35;
+        const s0 = a0 + (k / 6) * 0.7, s1 = a0 + ((k + 1) / 6) * 0.7;
+        blades.push(Math.cos(s0) * r0, 0, Math.sin(s0) * r0, Math.cos(s1) * r1, 0, Math.sin(s1) * r1);
+      }
+    }
+    const spin = segs(blades, line(0.85));
+    fan.add(spin, put(drum(0.55, 0.12), 0, 0, 0));
+    jet.add(fan);
+    tickers.push((t) => (spin.rotation.y = -t * 3));
+    // front port row (+z): barrel jack, HDMI, DisplayPort, 2× USB 3 stacks, RJ45
+    const FZ = 4.4;
+    jet.add(put(drum(0.5, 1.6), -5.3, JT + 0.55, FZ).rotateX(Math.PI / 2));
+    jet.add(put(port(1.8, 0.75, 1.4, [[1.3, 0.35, 0]]), -3.75, JT + 0.38, FZ));
+    jet.add(put(port(1.8, 0.75, 1.4, [[1.3, 0.35, 0]]), -1.7, JT + 0.38, FZ));
+    for (const x of [0.5, 2.6]) jet.add(put(port(1.8, 1.9, 2, [[1.3, 0.45, -0.45], [1.3, 0.45, 0.45]]), x, JT + 0.95, FZ - 0.3));
+    jet.add(put(port(2, 1.7, 2.6, [[1.3, 1.05, -0.1]]), 4.95, JT + 0.85, FZ - 0.6));
+    jet.add(header(0.6, -4.45, JT));
+    jet.add(put(solid(0.5, 0.3, 1.9), -5.75, JT + 0.15, -1)); // MIPI CSI camera connector
+    g.add(jet);
+    const jl = label("JETSON NANO", 0.62, 1, 600);
+    jl.sprite.position.set(-9, 6.3, -1.4);
+    g.add(jl.sprite);
+
+    // Rockchip single-board computer: SoC with its NPU under a pin-fin sink, LPDDR around it,
+    // ports along the front, 40-pin header along the back, an M.2 slot.
+    const rk = new THREE.Group();
+    rk.position.set(9.5, 0, 0.5);
+    const RT = 0.18;
+    rk.add(put(solid(11, 0.18, 7.5), 0, 0.09, 0));
+    rk.add(traces(10.6, 7, RT + 0.005, 38));
+    for (const [x, z] of [[-5, -3.2], [5, -3.2], [-5, 3.2], [5, 3.2]]) rk.add(hole(x, z, RT + 0.01));
+    rk.add(put(solid(2.3, 0.22, 2.3), -0.6, RT + 0.11, -0.4)); // SoC
+    for (const [x, z] of [[-2.75, -0.95], [-2.75, 0.15], [1.55, -0.95], [1.55, 0.15]]) rk.add(put(solid(1.3, 0.14, 0.9, 0.7), x, RT + 0.07, z)); // LPDDR
+    rk.add(put(solid(1.4, 0.14, 1.1, 0.7), 3.2, RT + 0.07, 1.2)); // eMMC
+    rk.add(put(solid(0.9, 0.12, 0.9, 0.6), -3.6, RT + 0.06, 1.4)); // PMIC
+    const SINK = RT + 0.3;
+    rk.add(put(solid(2.6, 0.14, 2.6), -0.6, SINK + 0.07, -0.4));
+    const pinsRk: number[] = [];
+    for (let i = 0; i < 7; i++)
+      for (let j = 0; j < 7; j++) {
+        const x = -0.6 - 1.08 + i * 0.36, z = -0.4 - 1.08 + j * 0.36;
+        pinsRk.push(x, SINK + 0.14, z, x, SINK + 0.95, z);
+      }
+    rk.add(segs(pinsRk, line(0.75)));
+    // front port row (+z): 2× USB stacks, RJ45, 2× HDMI, USB-C
+    const RZ = 3.35;
+    for (const x of [-4.3, -2.5]) rk.add(put(port(1.55, 1.6, 1.8, [[1.15, 0.4, -0.38], [1.15, 0.4, 0.38]]), x, RT + 0.8, RZ));
+    rk.add(put(port(1.7, 1.4, 2.2, [[1.15, 0.85, -0.1]]), -0.45, RT + 0.7, RZ - 0.2));
+    for (const x of [1.5, 3.05]) rk.add(put(port(1.35, 0.6, 1.1, [[1, 0.28, 0]]), x, RT + 0.3, RZ + 0.3));
+    rk.add(put(port(0.95, 0.35, 0.8, [[0.7, 0.15, 0]]), 4.5, RT + 0.18, RZ + 0.45));
+    rk.add(header(0.5, -3.3, RT));
+    rk.add(put(solid(1.7, 0.25, 0.5), 3.6, RT + 0.12, -1.3)); // M.2 key-M slot
+    rk.add(put(solid(0.5, 0.25, 1.9), -5.15, RT + 0.12, -0.7)); // MIPI CSI
+    g.add(rk);
+    const rl = label("ROCKCHIP", 0.62, 1, 600);
+    rl.sprite.position.set(8.9, 3.2, 0.1);
+    g.add(rl.sprite);
+
+    // one model, deployed down to both boards
     const net = new THREE.Group();
     const layers: THREE.Vector3[][] = [];
-    [6, 5, 3, 2].forEach((n, li) => {
+    [2, 3, 5, 6].forEach((n, li) => {
       const ly: THREE.Vector3[] = [];
       for (let i = 0; i < n; i++)
-        for (let j = 0; j < n; j++) ly.push(new THREE.Vector3((i - (n - 1) / 2) * 0.42, 1.25 + li * 0.55, (j - (n - 1) / 2) * 0.42));
+        for (let j = 0; j < n; j++) ly.push(new THREE.Vector3((i - (n - 1) / 2) * 0.5, li * 0.6, (j - (n - 1) / 2) * 0.5));
       layers.push(ly);
     });
-    net.add(points(layers.flat().flatMap((v) => v.toArray()), dots(0.06)));
+    net.add(points(layers.flat().flatMap((v) => v.toArray()), dots(0.09)));
     const wires: number[] = [];
     for (let li = 0; li < layers.length - 1; li++)
-      for (const a of layers[li]) {
-        const b = layers[li + 1][Math.floor(rnd() * layers[li + 1].length)];
+      for (const b of layers[li + 1]) {
+        const a = layers[li][Math.floor(rnd() * layers[li].length)];
         wires.push(...a.toArray(), ...b.toArray());
       }
     net.add(segs(wires, line(0.3)));
-    const netHolder = new THREE.Group();
-    netHolder.position.set(2.2, 0, 0);
-    netHolder.add(net);
-    g.add(netHolder);
-    const l1 = label("INT8 · TensorRT", 0.28);
-    l1.sprite.position.set(2.2, 3.5, 0);
-    g.add(l1.sprite);
-    const l2 = label("JETSON", 0.9);
-    l2.sprite.position.set(-8, 0.9, 6);
-    g.add(l2.sprite);
+    const NET = new THREE.Vector3(0.3, 5.6, -1.2);
+    net.position.copy(NET);
+    g.add(net);
     tickers.push((t) => (net.rotation.y = t * 0.25));
+    const ml = label("one model", 0.34, 0.75);
+    ml.sprite.position.set(NET.x, NET.y + 2.5, NET.z);
+    g.add(ml.sprite);
+    for (const [to, ctrl, text] of [
+      [new THREE.Vector3(-9, FAN_Y + 0.5, -1.4), new THREE.Vector3(-4.5, 7.2, -1.3), "CUDA · TensorRT"],
+      [new THREE.Vector3(8.9, SINK + 1.15, 0.1), new THREE.Vector3(5.5, 6.8, -0.6), "NPU · INT8"],
+    ] as const) {
+      const path = new THREE.QuadraticBezierCurve3(NET.clone().add(new THREE.Vector3(0, -0.2, 0)), ctrl, to).getPoints(40);
+      g.add(polyline(path, dashed(0.55)), runner(path, 4, 0.2, 2.2));
+      const lb = label(text, 0.3, 0.85);
+      lb.sprite.position.copy(path[20]).add(new THREE.Vector3(0, 0.45, 0));
+      g.add(lb.sprite);
+    }
     scene.add(g);
   }
 
@@ -605,12 +756,57 @@ export function mountWorld(canvas: HTMLCanvasElement, opts: { reduced: boolean }
   // ---------- camera path ----------
   const posCurve = new THREE.CatmullRomCurve3(KEYS.map(([p]) => v3(p)), false, "centripetal");
   const tgtCurve = new THREE.CatmullRomCurve3(KEYS.map(([, t]) => v3(t)), false, "centripetal");
-  let progress = 0;
+
+  // ---------- transitions: a portal ring on the sightline into each world ----------
+  for (const { stop, view } of portals()) {
+    const [cam, look] = view.map(v3);
+    const dir = look.clone().sub(cam).normalize();
+    const p = new THREE.Group();
+    p.position.copy(cam).addScaledVector(dir, -RING_BACK);
+    p.lookAt(look);
+    const R = 5.2;
+    p.add(ring(R, line(0.9)));
+    const inner = ring(R - 0.45, dashed(0.5), 120);
+    const ticks = new THREE.Group();
+    const tk: number[] = [];
+    for (let i = 0; i < 48; i++) {
+      const a = (i / 48) * Math.PI * 2, r1 = R + (i % 4 ? 0.35 : 0.8);
+      tk.push(Math.cos(a) * (R + 0.15), Math.sin(a) * (R + 0.15), 0, Math.cos(a) * r1, Math.sin(a) * r1, 0);
+    }
+    ticks.add(segs(tk, line(0.6)));
+    p.add(inner, ticks);
+    const lb = label(`→ ${stop.kicker}`, 0.5, 1, 600);
+    lb.sprite.position.set(0, R + 1.6, 0);
+    p.add(lb.sprite);
+    tickers.push((t) => {
+      inner.rotation.z = -t * 0.3;
+      ticks.rotation.z = t * 0.12;
+    });
+    scene.add(p);
+  }
+
+  // dust between the worlds, for a sense of speed while flying; kept out of the scenes themselves
+  {
+    const centres = Object.values(POS).map((c) => new THREE.Vector2(c[0], c[2]));
+    const d: number[] = [];
+    while (d.length < 2600 * 3) {
+      const x = -40 + rnd() * 440, y = -14 + rnd() * 46, z = -50 + rnd() * 100;
+      if (centres.some((c) => Math.hypot(c.x - x, c.y - z) < 22)) continue;
+      d.push(x, y, z);
+    }
+    scene.add(points(d, dots(0.1, 0.5)));
+  }
+
+  // The camera eases toward the scroll position instead of jumping with each wheel tick.
+  let target = 0, shown = 0, lastT = 0, pull = 1;
   const look = new THREE.Vector3();
-  function place() {
-    const p = THREE.MathUtils.clamp(progress, 0, 1);
-    camera.position.copy(posCurve.getPoint(p));
-    camera.lookAt(tgtCurve.getPoint(p, look));
+  function place(dt: number) {
+    shown = opts.reduced || !running || dt <= 0 ? target : shown + (target - shown) * (1 - Math.exp(-dt * 4));
+    const p = THREE.MathUtils.clamp(shown, 0, 1);
+    tgtCurve.getPoint(p, look);
+    // narrow screens stand further back along the same sightline, so wide scenes still fit
+    camera.position.copy(posCurve.getPoint(p)).sub(look).multiplyScalar(pull).add(look);
+    camera.lookAt(look);
   }
 
   // ---------- loop ----------
@@ -621,6 +817,7 @@ export function mountWorld(canvas: HTMLCanvasElement, opts: { reduced: boolean }
     camera.aspect = w / h;
     // narrow screens see the diagrams from further back
     camera.fov = w < 700 ? 74 : 50;
+    pull = w < 700 ? 1.35 : 1;
     camera.updateProjectionMatrix();
   }
   const ro = new ResizeObserver(() => {
@@ -641,7 +838,8 @@ export function mountWorld(canvas: HTMLCanvasElement, opts: { reduced: boolean }
   function frame(now: number) {
     const t = opts.reduced ? 1.5 : (now - t0) / 1000;
     for (const f of tickers) f(t);
-    place();
+    place(Math.min(0.1, (now - lastT) / 1000));
+    lastT = now;
     renderer.render(scene, camera);
   }
   function loop(now: number) {
@@ -652,7 +850,7 @@ export function mountWorld(canvas: HTMLCanvasElement, opts: { reduced: boolean }
 
   return {
     setProgress(p) {
-      progress = p;
+      target = p;
       if (!running) frame(performance.now());
     },
     setRunning(on) {
