@@ -42,7 +42,7 @@ export interface Interest {
 export const profile = {
   name: "Hein Htet",
   alias: "Jeremy",
-  handle: "jer-1404",
+  handle: "heinhtet14",
   title: "Edge AI & Embedded ML Engineer",
   location: "Bangkok, Thailand",
   summary:
@@ -51,7 +51,7 @@ export const profile = {
     email: "heinhtet.eie@gmail.com",
     phone: "+66 99 439 1816",
     linkedin: "https://linkedin.com/in/hein-htet-jeremy",
-    github: "https://github.com/jer-1404",
+    github: "https://github.com/heinhtet14",
   },
   education: {
     school: "King Mongkut's University of Technology Thonburi",
