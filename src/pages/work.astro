@@ -1,0 +1,120 @@
+---
+import Page from "../layouts/Page.astro";
+import Logo from "../components/Logo.astro";
+import { projects, universes } from "../data/profile";
+import { iconFor, isWordmark } from "../data/stack";
+import { archive } from "../data/archive";
+
+const glyphOf = Object.fromEntries(universes.map((u) => [u.id, u.glyph]));
+const note = (s: string) => s.charAt(0).toLowerCase() + s.slice(1);
+---
+
+<Page active="work" title="Work · Hein Htet" description="Projects across edge AI, robotics, agents, backend and DevOps, plus earlier robotics work from 2017–2021.">
+  <section class="page-head" aria-labelledby="work-h">
+    <p class="eyebrow">Work</p>
+    <h1 id="work-h">Things I've built.</h1>
+    <p class="lede">Pick an area to narrow the list; open any project for what it did and what it ran on.</p>
+    <div class="filter" role="group" aria-label="Filter work by area">
+      <button type="button" data-warp="all" data-tagline="every timeline at once." aria-pressed="true">All</button>
+      {
+        universes.map((u) => (
+          <button type="button" data-warp={u.id} data-tagline={note(u.tagline)} aria-pressed="false">
+            <span class="glyph" aria-hidden="true">
+              {u.glyph}
+            </span>
+            {u.name}
+          </button>
+        ))
+      }
+    </div>
+    <p class="filter-note" id="u-note" aria-live="polite">every timeline at once.</p>
+  </section>
+
+  <ul class="work">
+    {
+      projects.map((p) => (
+        <li id={`p-${p.slug}`} data-universes={p.universes.join(" ")}>
+          <details>
+            <summary>
+              <span class="year">{p.year}</span>
+              <h3>{p.title}</h3>
+              <span class="marks" title={p.universes.join(", ")}>
+                {p.universes.map((u) => glyphOf[u]).join("")}
+              </span>
+              <p class="one">{p.summary}</p>
+              <span class="plus" aria-hidden="true" />
+            </summary>
+            <div class="more">
+              {p.metric && <p class="metric">{p.metric}</p>}
+              {p.points.length > 0 && (
+                <ul>
+                  {p.points.map((pt) => (
+                    <li>{pt}</li>
+                  ))}
+                </ul>
+              )}
+              <ul class="stack-inline">
+                {p.stack.map((name) => (
+                  <li>
+                    {iconFor(name) && <Logo name={name} size={13} />}
+                    {isWordmark(name) ? <span class="sr-only">{name}</span> : name}
+                  </li>
+                ))}
+              </ul>
+              {p.link && (
+                <p class="stack">
+                  <a href={p.link.href} target="_blank" rel="noopener">
+                    {p.link.label} ↗
+                  </a>
+                </p>
+              )}
+            </div>
+          </details>
+        </li>
+      ))
+    }
+  </ul>
+
+  <section id="archive" aria-labelledby="archive-h">
+    <h2 class="eyebrow" id="archive-h">Archive <span>2017–2021, before the edge</span></h2>
+    <ol class="acc">
+      {
+        archive.map((a) => (
+          <li>
+            <details>
+              <summary>
+                <span class="lead">{a.year}</span>
+                <h3>{a.title}</h3>
+                <span class="sub">
+                  {a.role} · {a.photos.length} photo{a.photos.length === 1 ? "" : "s"}
+                </span>
+                <span class="plus" aria-hidden="true" />
+              </summary>
+              <div class="more">
+                <p>{a.summary}</p>
+                <ul class="shots">
+                  {a.photos.map((ph) => (
+                    <li>
+                      <button type="button" data-photo={`/archive/${ph.file}`} data-caption={ph.caption}>
+                        <img src={`/archive/${ph.file}`} alt={ph.alt} loading="lazy" decoding="async" />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </details>
+          </li>
+        ))
+      }
+    </ol>
+    <dialog class="lightbox" id="lightbox">
+      <form method="dialog"><button class="close" aria-label="Close">×</button></form>
+      <img id="lightbox-img" alt="" />
+      <p id="lightbox-cap"></p>
+    </dialog>
+  </section>
+
+  <script>
+    import "../scripts/work";
+  </script>
+</Page>

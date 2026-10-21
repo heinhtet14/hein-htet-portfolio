@@ -1,37 +1,61 @@
 ---
-// Chrome for pages other than the home page: a short header, the content, the shared footer.
+// Chrome for every page: a short header with the site's pages, the content, and a footer that
+// carries the contact details, so no page needs its own contact section.
 import Base from "./Base.astro";
 import { profile } from "../data/profile";
 
 interface Props {
   title: string;
   description: string;
+  /** which nav item is the current page */
+  active?: "home" | "work" | "about" | "writing" | "terminal";
 }
-const { title, description } = Astro.props;
+const { title, description, active = "home" } = Astro.props;
+const nav = [
+  { id: "work", href: "/work/", label: "work" },
+  { id: "about", href: "/about/", label: "about" },
+  { id: "writing", href: "/blog/", label: "writing" },
+  { id: "terminal", href: "/terminal/", label: "terminal" },
+] as const;
+const c = profile.contact;
 ---
 
 <Base title={title} description={description}>
   <link slot="head" rel="alternate" type="application/rss+xml" title={`${profile.name}: writing`} href="/rss.xml" />
   <div class="wrap">
     <header class="bar">
-      <a class="brand" href="/">HH-01</a>
-      <span class="rev">writing</span>
+      <a class="brand" href="/" aria-current={active === "home" ? "page" : undefined}>HH-01</a>
       <nav aria-label="Site">
-        <a href="/">home</a>
-        <a href="/#work">work</a>
-        <a href="/blog/">blog</a>
-        <a href="/rss.xml">rss</a>
-        <a href="/#contact">contact</a>
+        {
+          nav.map((n) => (
+            <a href={n.href} aria-current={active === n.id ? "page" : undefined}>
+              {n.label}
+            </a>
+          ))
+        }
+        <a href="#contact">contact</a>
       </nav>
     </header>
-    <main>
+    <main id="top">
       <slot />
     </main>
   </div>
-  <footer>
+  <footer id="contact">
     <div class="wrap">
-      <span>{profile.location} · <span id="clock">local time</span></span>
-      <span>© {new Date().getFullYear()} {profile.name} · <button type="button" id="theme">invert</button></span>
+      <div class="reach">
+        <p class="say">Say hello.</p>
+        <ul class="links">
+          <li><a href={`mailto:${c.email}`}>{c.email}</a></li>
+          <li><a href={`tel:${c.phone.replace(/\s/g, "")}`}>{c.phone}</a></li>
+          <li><a href={c.linkedin} target="_blank" rel="noopener">linkedin</a></li>
+          <li><a href={c.github} target="_blank" rel="noopener">github</a></li>
+          <li><a href="/hein-htet-resume.pdf" download>resume.pdf</a></li>
+        </ul>
+      </div>
+      <div class="meta">
+        <span>{profile.location} · <span id="clock">local time</span></span>
+        <span>© {new Date().getFullYear()} {profile.name} · <button type="button" id="theme">invert</button></span>
+      </div>
     </div>
   </footer>
 </Base>

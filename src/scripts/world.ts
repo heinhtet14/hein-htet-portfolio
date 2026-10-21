@@ -15,13 +15,15 @@ export interface WorldHandle {
 }
 
 // ---------- system diagrams (the Magick Mind scenes) ----------
-// Nodes sit on a plane facing the camera; `sub` is an optional one-line role.
+// Nodes sit on a plane facing the camera, each drawn as a glyph for its role; `sub` is an
+// optional one-line role under the name.
+type Glyph = "core" | "wave" | "listen" | "speak" | "hex" | "gear" | "devices" | "window" | "tools" | "db" | "docs" | "chat";
 interface DNode {
   id: string;
   title: string;
   sub?: string[];
   at: [number, number];
-  kind?: "box" | "db" | "stack";
+  glyph: Glyph;
 }
 interface DEdge {
   from: string;
@@ -32,25 +34,19 @@ interface DEdge {
   /** packets per edge; 0 for structural links */
   flow?: number;
 }
-interface DFrame {
-  title: string;
-  from: [number, number];
-  to: [number, number];
-}
 interface Diagram {
   heading: string;
   nodes: DNode[];
   edges: DEdge[];
-  frames?: DFrame[];
 }
 
 const HANDS: Diagram = {
   heading: "LLM → robot",
   nodes: [
-    { id: "in", title: "Voice / text", at: [-13, 1] },
-    { id: "agent", title: "Agent", sub: ["decides what"], at: [-6, 1] },
-    { id: "iface", title: "Robot interface", sub: ["one typed contract"], at: [1.5, 1] },
-    { id: "robot", title: "Robot runtime", sub: ["decides how, safely"], at: [8.5, 1] },
+    { id: "in", title: "Voice / text", at: [-13, 1], glyph: "wave" },
+    { id: "agent", title: "Agent", sub: ["decides what"], at: [-6, 1], glyph: "core" },
+    { id: "iface", title: "Robot interface", sub: ["one typed contract"], at: [1.5, 1], glyph: "hex" },
+    { id: "robot", title: "Robot runtime", sub: ["decides how, safely"], at: [8.5, 1], glyph: "gear" },
   ],
   edges: [
     { from: "in", to: "agent", flow: 1 },
@@ -63,10 +59,10 @@ const HANDS: Diagram = {
 const VOICE: Diagram = {
   heading: "Real-time voice",
   nodes: [
-    { id: "dev", title: "Devices", at: [-13, 1], kind: "stack" },
-    { id: "listen", title: "Listen", sub: ["speech → text"], at: [-5, 1] },
-    { id: "think", title: "Think", sub: ["persona + LLM"], at: [2.5, 1] },
-    { id: "speak", title: "Speak", sub: ["text → speech"], at: [10, 1] },
+    { id: "dev", title: "Devices", at: [-13, 1], glyph: "devices" },
+    { id: "listen", title: "Listen", sub: ["speech → text"], at: [-5, 1], glyph: "listen" },
+    { id: "think", title: "Think", sub: ["persona + LLM"], at: [2.5, 1], glyph: "core" },
+    { id: "speak", title: "Speak", sub: ["text → speech"], at: [10, 1], glyph: "speak" },
   ],
   edges: [
     { from: "dev", to: "listen", label: "audio", flow: 2 },
@@ -79,11 +75,11 @@ const VOICE: Diagram = {
 const AGENT: Diagram = {
   heading: "Mindroid agent runtime",
   nodes: [
-    { id: "ctx", title: "Context", at: [-11, 1] },
-    { id: "llm", title: "LLM", sub: ["streaming"], at: [-4, 1] },
-    { id: "tools", title: "Tools", sub: ["skills"], at: [3, 1] },
-    { id: "out", title: "Reply", at: [10, 1] },
-    { id: "mem", title: "Memory", at: [-11, -3.2], kind: "db" },
+    { id: "ctx", title: "Context", at: [-11, 1], glyph: "window" },
+    { id: "llm", title: "LLM", sub: ["streaming"], at: [-4, 1], glyph: "core" },
+    { id: "tools", title: "Tools", sub: ["skills"], at: [3, 1], glyph: "tools" },
+    { id: "out", title: "Reply", at: [10, 1], glyph: "wave" },
+    { id: "mem", title: "Memory", at: [-11, 5.6], glyph: "db" },
   ],
   edges: [
     { from: "ctx", to: "llm", flow: 1 },
@@ -97,11 +93,11 @@ const AGENT: Diagram = {
 const MEMORY: Diagram = {
   heading: "Memory + knowledge",
   nodes: [
-    { id: "chat", title: "Conversations", at: [-9, 3.5] },
-    { id: "mem", title: "Memory", sub: ["what it remembers"], at: [-1, 3.5], kind: "db" },
-    { id: "docs", title: "Documents", at: [-9, -1.5], kind: "stack" },
-    { id: "kb", title: "Knowledge", sub: ["what it can look up"], at: [-1, -1.5], kind: "db" },
-    { id: "ctx", title: "Agent context", at: [8, 1] },
+    { id: "chat", title: "Conversations", at: [-9, 3.5], glyph: "chat" },
+    { id: "mem", title: "Memory", sub: ["what it remembers"], at: [-1, 3.5], glyph: "db" },
+    { id: "docs", title: "Documents", at: [-9, -1.5], glyph: "docs" },
+    { id: "kb", title: "Knowledge", sub: ["what it can look up"], at: [-1, -1.5], glyph: "db" },
+    { id: "ctx", title: "Agent context", at: [8, 1], glyph: "window" },
   ],
   edges: [
     { from: "chat", to: "mem", flow: 1 },
@@ -220,146 +216,278 @@ export function mountWorld(canvas: HTMLCanvasElement, opts: { reduced: boolean }
   const v3 = (p: V3) => new THREE.Vector3(...p);
 
   // ---------- diagram builder ----------
+  // Each node is a simple glyph for its role with one slow motion, its name underneath;
+  // links are arcs carrying packets. Glyphs are roughly radius 1.5.
+  type Built = { obj: THREE.Object3D; r: number };
+  const glyphs: Record<Glyph, () => Built> = {
+    // a thinking core: a slowly turning icosahedron
+    core: () => {
+      const shell = edges(new THREE.IcosahedronGeometry(1.2, 0), line(0.9));
+      tickers.push((t) => shell.rotation.set(t * 0.12, t * 0.2, 0));
+      return { obj: shell, r: 1.5 };
+    },
+    // live waveform: bars whose heights ripple
+    wave: () => {
+      const n = 9, arr = new Float32Array(n * 6);
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute("position", new THREE.BufferAttribute(arr, 3));
+      const bars = new THREE.LineSegments(geo, line(0.95));
+      const g = new THREE.Group();
+      g.add(bars, segs([-1.6, 0, 0, 1.6, 0, 0], line(0.25)));
+      const ph = rnd() * 10;
+      tickers.push((t) => {
+        for (let i = 0; i < n; i++) {
+          const x = -1.28 + i * 0.32;
+          const h = 0.12 + Math.abs(Math.sin(t * 2 + i * 0.7 + ph)) * 0.9 * (1 - Math.abs(i - 4) / 6);
+          arr.set([x, -h, 0, x, h, 0], i * 6);
+        }
+        geo.attributes.position.needsUpdate = true;
+      });
+      return { obj: g, r: 1.6 };
+    },
+    // listening: rings drawn inward to a point; speaking: rings pushed outward
+    listen: () => pulse(-1),
+    speak: () => pulse(1),
+    // one typed contract: a hex prism with a { } face and pins on its corners
+    hex: () => {
+      const g = new THREE.Group();
+      const geo = new THREE.CylinderGeometry(1.2, 1.2, 0.6, 6);
+      const prism = new THREE.Group();
+      prism.add(new THREE.Mesh(geo, FACE), edges(geo, line()));
+      prism.rotation.x = Math.PI / 2;
+      const braces = label("{ }", 0.55, 1, 600, true);
+      braces.sprite.position.z = 0.4;
+      g.add(prism, braces.sprite);
+      tickers.push((t) => (prism.rotation.y = t * 0.2));
+      return { obj: g, r: 1.4 };
+    },
+    // the runtime that decides how: a turning gear
+    gear: () => {
+      const shape = new THREE.Shape();
+      const teeth = 10, ro = 1.3, ri = 1.02;
+      for (let i = 0; i < teeth * 4; i++) {
+        const a = (i / (teeth * 4)) * Math.PI * 2, r = i % 4 < 2 ? ro : ri;
+        if (i === 0) shape.moveTo(Math.cos(a) * r, Math.sin(a) * r);
+        else shape.lineTo(Math.cos(a) * r, Math.sin(a) * r);
+      }
+      const holePath = new THREE.Path();
+      holePath.absarc(0, 0, 0.38, 0, Math.PI * 2, true);
+      shape.holes.push(holePath);
+      const geo = new THREE.ExtrudeGeometry(shape, { depth: 0.4, bevelEnabled: false });
+      geo.translate(0, 0, -0.2);
+      const gear = new THREE.Group();
+      gear.add(new THREE.Mesh(geo, FACE), edges(geo, line(), 30));
+      tickers.push((t) => (gear.rotation.z = -t * 0.4));
+      return { obj: gear, r: 1.45 };
+    },
+    // a small fleet of devices
+    devices: () => {
+      const g = new THREE.Group();
+      for (let i = 0; i < 4; i++) g.add(put(solid(1, 0.6, 0.25, 0.9), (i % 2) * 1.25 - 0.62, Math.floor(i / 2) * 0.85 - 0.42, 0));
+      return { obj: g, r: 1.5 };
+    },
+    // a context window filling up with tokens, then starting over
+    window: () => {
+      const g = new THREE.Group();
+      g.add(put(solid(2.7, 2, 0.12), 0, 0, 0));
+      g.add(segs([-1.35, 0.68, 0.07, 1.35, 0.68, 0.07], line(0.6)));
+      const rows = 4, arr = new Float32Array(rows * 6);
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute("position", new THREE.BufferAttribute(arr, 3));
+      g.add(new THREE.LineSegments(geo, line(0.85)));
+      const widths = Array.from({ length: rows }, () => 1.2 + rnd() * 1);
+      tickers.push((t) => {
+        const fill = ((t * 0.25) % 1.25) * rows; // rows written so far, with a pause when full
+        for (let i = 0; i < rows; i++) {
+          const w = widths[i] * THREE.MathUtils.clamp(fill - i, 0, 1);
+          const y = 0.38 - i * 0.28;
+          arr.set([-1.15, y, 0.07, -1.15 + Math.max(0.001, w), y, 0.07], i * 6);
+        }
+        geo.attributes.position.needsUpdate = true;
+      });
+      return { obj: g, r: 1.55 };
+    },
+    // skills: four blocks, slowly turning
+    tools: () => {
+      const g = new THREE.Group();
+      for (const x of [-1, 1]) for (const y of [-1, 1]) g.add(put(solid(0.75, 0.75, 0.75, 0.9), x * 0.48, y * 0.48, 0));
+      tickers.push((t) => (g.rotation.y = t * 0.25));
+      return { obj: g, r: 1.4 };
+    },
+    // a store: stacked discs, tilted to the viewer
+    db: () => {
+      const g = new THREE.Group();
+      g.rotation.x = 0.42;
+      for (const y of [-0.55, 0, 0.55]) {
+        const geo = new THREE.CylinderGeometry(1.15, 1.15, 0.38, 40);
+        g.add(put(new THREE.Mesh(geo, FACE), 0, y, 0), put(edges(geo, line(), 30), 0, y, 0));
+      }
+      return { obj: g, r: 1.45 };
+    },
+    // documents: a fan of pages with text on the front one
+    docs: () => {
+      const g = new THREE.Group();
+      const pages: THREE.Object3D[] = [];
+      for (let i = 0; i < 3; i++) {
+        const p = new THREE.Group();
+        p.add(solid(1.5, 1.9, 0.04, 1 - i * 0.15));
+        if (i === 0) {
+          const tl: number[] = [];
+          for (let k = 0; k < 5; k++) tl.push(-0.5, 0.55 - k * 0.27, 0.03, 0.5 - (k % 2) * 0.3, 0.55 - k * 0.27, 0.03);
+          p.add(segs(tl, line(0.6)));
+        }
+        p.position.z = -i * 0.18;
+        pages.push(p);
+        g.add(p);
+      }
+      pages.forEach((p, i) => (p.rotation.z = i * 0.12));
+      return { obj: g, r: 1.45 };
+    },
+    // conversations: two speech bubbles, one each way
+    chat: () => {
+      const g = new THREE.Group();
+      const bubble = (x: number, y: number, flip: number) => {
+        const b = new THREE.Group();
+        b.add(solid(1.7, 0.9, 0.08));
+        b.add(segs([-0.5 * flip, -0.45, 0.05, -0.65 * flip, -0.8, 0.05, -0.65 * flip, -0.8, 0.05, -0.2 * flip, -0.45, 0.05], line()));
+        b.add(segs([-0.55, 0.12, 0.05, 0.55, 0.12, 0.05, -0.55, -0.14, 0.05, 0.2, -0.14, 0.05], line(0.6)));
+        return put(b, x, y, 0);
+      };
+      const a = bubble(-0.45, 0.45, 1), b = bubble(0.5, -0.55, -1);
+      b.position.z = -0.25;
+      g.add(a, b);
+      return { obj: g, r: 1.55 };
+    },
+  };
+  function pulse(dir: 1 | -1): Built {
+    const g = new THREE.Group();
+    const rs: { l: THREE.LineLoop; m: THREE.LineBasicMaterial; k: number }[] = [];
+    for (let k = 0; k < 3; k++) {
+      const m = line(0.9);
+      const l = ring(1, m, 64);
+      rs.push({ l, m, k });
+      g.add(l);
+    }
+    g.add(points([0, 0, 0], dots(0.28)));
+    tickers.push((t) => {
+      for (const { l, m, k } of rs) {
+        let u = (t * 0.35 + k / 3) % 1;
+        if (dir < 0) u = 1 - u;
+        l.scale.setScalar(0.15 + u * 1.35);
+        m.opacity = 0.9 * Math.sin(u * Math.PI);
+      }
+    });
+    return { obj: g, r: 1.55 };
+  }
+
   function diagram(spec: Diagram) {
     const g = new THREE.Group();
-    const T = 0.5, S = 0.32, D = 0.7; // title height, sub-line height, box depth
-    const boxes = new Map<string, { x: number; y: number; w: number; h: number }>();
+    const T = 0.46, S = 0.3; // title and sub-line heights
+    const nodes = new Map<string, { x: number; y: number; r: number }>();
 
     for (const n of spec.nodes) {
-      const sub = n.sub ?? [];
-      const title = label(n.title, T, 1, 600, true);
-      const subl = sub.length ? label(sub.join("\n"), S, 0.72, 500, true) : null;
-      const w = Math.max(title.width, subl?.width ?? 0) + 0.7;
-      const h = T + S * sub.length + 0.55;
+      const { obj, r } = glyphs[n.glyph]();
       const [x, y] = n.at;
-      boxes.set(n.id, { x, y, w, h });
+      nodes.set(n.id, { x, y, r });
       const holder = new THREE.Group();
       holder.position.set(x, y, 0);
-      const fill = new THREE.Mesh(new THREE.BoxGeometry(w, h, D), face());
-      holder.add(fill);
-      if (n.kind === "db") {
-        // silhouette only: two sides plus the rims below, no seam lines across the label
-        holder.add(segs([-w / 2, -h / 2, 0, -w / 2, h / 2, 0, w / 2, -h / 2, 0, w / 2, h / 2, 0], line()));
-        for (const yy of [h / 2, -h / 2]) {
-          const ring = new THREE.LineLoop(
-            new THREE.BufferGeometry().setFromPoints(
-              Array.from({ length: 40 }, (_, i) => new THREE.Vector3(Math.cos((i / 40) * Math.PI * 2) * (w / 2), yy, Math.sin((i / 40) * Math.PI * 2) * D)),
-            ),
-            line(),
-          );
-          holder.add(ring);
-        }
-        fill.scale.set(0.98, 1, 0.5);
-      } else {
-        holder.add(box(w, h, D, line()));
-        if (n.kind === "stack")
-          for (const k of [1, 2]) {
-            const back = box(w, h, D, line(0.45 - k * 0.12));
-            back.position.set(k * 0.22, k * 0.22, -k * 0.3);
-            holder.add(back);
-          }
-      }
-      title.sprite.position.set(0, h / 2 - 0.28 - T / 2 + 0.05, D / 2 + 0.05);
+      holder.add(obj);
+      const title = label(n.title, T, 1, 600, true);
+      title.sprite.position.set(0, -r - 0.38, 0.3);
       holder.add(title.sprite);
-      if (subl) {
-        subl.sprite.position.set(0, h / 2 - 0.28 - T - (S * sub.length) / 2 + 0.02, D / 2 + 0.05);
-        holder.add(subl.sprite);
+      if (n.sub) {
+        const sub = label(n.sub.join("\n"), S, 0.65, 500, true);
+        sub.sprite.position.set(0, -r - 0.38 - T / 2 - (S * n.sub.length) / 2 - 0.08, 0.3);
+        holder.add(sub.sprite);
       }
       g.add(holder);
     }
 
-    // anchor on a box's border, heading toward `to`
+    // where a link meets a glyph: on its circle, heading toward `to`
     const anchor = (id: string, toward: THREE.Vector2) => {
-      const b = boxes.get(id)!;
+      const b = nodes.get(id)!;
       const c = new THREE.Vector2(b.x, b.y);
-      const d = toward.clone().sub(c);
-      const sx = d.x === 0 ? Infinity : b.w / 2 / Math.abs(d.x);
-      const sy = d.y === 0 ? Infinity : b.h / 2 / Math.abs(d.y);
-      const s = Math.min(sx, sy);
-      return c.add(d.multiplyScalar(s + 0.08 / d.length()));
+      return c.clone().add(toward.clone().sub(c).normalize().multiplyScalar(b.r + 0.12));
     };
 
-    const flows: { path: THREE.Vector3[]; lens: number[]; total: number; n: number; off: number }[] = [];
+    const flows: { pts: THREE.Vector3[]; lens: number[]; total: number; n: number; off: number }[] = [];
     for (const e of spec.edges) {
-      const A = boxes.get(e.from)!, B = boxes.get(e.to)!;
+      const A = nodes.get(e.from)!, B = nodes.get(e.to)!;
       const via = (e.via ?? []).map(([x, y]) => new THREE.Vector2(x, y));
-      const first = via[0] ?? new THREE.Vector2(B.x, B.y);
-      const last = via[via.length - 1] ?? new THREE.Vector2(A.x, A.y);
-      const pts2 = [anchor(e.from, first), ...via, anchor(e.to, last)];
-      const path = pts2.map((p) => new THREE.Vector3(p.x, p.y, 0));
-      const flat: number[] = [];
-      for (let i = 0; i < path.length - 1; i++) flat.push(...path[i].toArray(), ...path[i + 1].toArray());
-      g.add(segs(flat, e.dashed ? dashed() : line(0.8)));
-      // arrowhead
-      const tip = path[path.length - 1], prev = path[path.length - 2];
-      const dir = tip.clone().sub(prev).normalize();
-      const head = edges(new THREE.ConeGeometry(0.16, 0.42, 6), line());
-      head.position.copy(tip.clone().addScaledVector(dir, -0.21));
-      head.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
-      g.add(head);
+      const a = anchor(e.from, via[0] ?? new THREE.Vector2(B.x, B.y));
+      const b = anchor(e.to, via[via.length - 1] ?? new THREE.Vector2(A.x, A.y));
+      // straight links bow up and toward the viewer; routed links round their corners
+      const curve = via.length
+        ? new THREE.CatmullRomCurve3([a, ...via, b].map((p, i, all) => new THREE.Vector3(p.x, p.y, i === 0 || i === all.length - 1 ? 0 : 0.5)), false, "centripetal", 0.2)
+        : new THREE.QuadraticBezierCurve3(
+            new THREE.Vector3(a.x, a.y, 0),
+            new THREE.Vector3((a.x + b.x) / 2, (a.y + b.y) / 2 + a.distanceTo(b) * 0.18, 0.9),
+            new THREE.Vector3(b.x, b.y, 0),
+          );
+      const pts = curve.getPoints(via.length ? 80 : 40);
+      g.add(polyline(pts, e.dashed ? dashed(0.55) : line(0.55)));
+      const tip = pts[pts.length - 1], dir = tip.clone().sub(pts[pts.length - 3]).normalize();
+      // a plain chevron, turned toward the camera's plane
+      const side = new THREE.Vector3(-dir.y, dir.x, 0).multiplyScalar(0.2);
+      const back = tip.clone().addScaledVector(dir, -0.32);
+      g.add(segs([...back.clone().add(side).toArray(), ...tip.toArray(), ...tip.toArray(), ...back.clone().sub(side).toArray()], line()));
       if (e.label) {
-        // put the label on the longest segment, just above it
-        let k = 0, best = -1;
-        for (let i = 0; i < path.length - 1; i++) {
-          const L = path[i].distanceTo(path[i + 1]);
-          if (L > best) ((best = L), (k = i));
-        }
-        const mid = path[k].clone().lerp(path[k + 1], 0.5);
-        const lb = label(e.label, 0.3, 0.85, 500, true);
-        const horizontal = Math.abs(path[k + 1].y - path[k].y) < 0.01;
-        lb.sprite.position.set(mid.x + (horizontal ? 0 : lb.width / 2 + 0.2), mid.y + (horizontal ? 0.3 : 0), 0.1);
+        // the label rides the middle of the link, just above it
+        const mid = pts[Math.floor(pts.length / 2)];
+        const lb = label(e.label, 0.28, 0.85, 500, true);
+        lb.sprite.position.set(mid.x, mid.y + 0.34, mid.z + 0.1);
         g.add(lb.sprite);
       }
       if (e.flow) {
-        const lens = path.slice(1).map((p, i) => p.distanceTo(path[i]));
-        flows.push({ path, lens, total: lens.reduce((a, b) => a + b, 0), n: e.flow, off: rnd() });
+        const lens = pts.slice(1).map((p, i) => p.distanceTo(pts[i]));
+        flows.push({ pts, lens, total: lens.reduce((x, y) => x + y, 0), n: e.flow, off: rnd() });
       }
     }
 
-    for (const f of spec.frames ?? []) {
-      const [x0, y0] = f.from, [x1, y1] = f.to;
-      g.add(segs([x0, y0, -0.6, x1, y0, -0.6, x1, y0, -0.6, x1, y1, -0.6, x1, y1, -0.6, x0, y1, -0.6, x0, y1, -0.6, x0, y0, -0.6], dashed(0.35)));
-      const lb = label(f.title, 0.3, 0.6);
-      lb.sprite.position.set(x0 + lb.width / 2 + 0.25, y0 + 0.32, -0.5);
-      g.add(lb.sprite);
-    }
-
-    const xs = [...boxes.values()].flatMap((b) => [b.x - b.w / 2, b.x + b.w / 2]);
-    const ys = [...boxes.values()].flatMap((b) => [b.y + b.h / 2]);
-    const head = label(spec.heading, 0.55, 1, 600);
-    const vias = spec.edges.flatMap((e) => (e.via ?? []).map(([, y]) => y));
-    head.sprite.position.set((Math.min(...xs) + Math.max(...xs)) / 2, Math.max(...ys, ...vias, ...(spec.frames ?? []).map((f) => f.to[1])) + 1.3, 0);
-    g.add(head.sprite);
-
-    // packets riding the live edges
+    // packets: one dot per packet
     const count = flows.reduce((a, f) => a + f.n, 0);
-    const arr = new Float32Array(count * 3);
-    const pg = new THREE.BufferGeometry();
-    pg.setAttribute("position", new THREE.BufferAttribute(arr, 3));
-    g.add(new THREE.Points(pg, dots(0.3)));
-    const at = (f: (typeof flows)[number], u: number, out: THREE.Vector3) => {
-      let d = u * f.total;
-      for (let i = 0; i < f.lens.length; i++) {
-        if (d <= f.lens[i]) return out.copy(f.path[i]).lerp(f.path[i + 1], d / f.lens[i]);
-        d -= f.lens[i];
-      }
-      return out.copy(f.path[f.path.length - 1]);
+    const TRAIL = [{ lag: 0, size: 0.26, alpha: 1 }];
+    const layers = TRAIL.map(({ size, alpha }) => {
+      const arr = new Float32Array(Math.max(1, count) * 3);
+      const pg = new THREE.BufferGeometry();
+      pg.setAttribute("position", new THREE.BufferAttribute(arr, 3));
+      const p = new THREE.Points(pg, dots(size, alpha));
+      p.frustumCulled = false;
+      g.add(p);
+      return { arr, pg };
+    });
+    const walk = (f: (typeof flows)[number], d: number, out: THREE.Vector3) => {
+      d = ((d % f.total) + f.total) % f.total;
+      let i = 0;
+      while (i < f.lens.length - 1 && d > f.lens[i]) d -= f.lens[i++];
+      return out.copy(f.pts[i]).lerp(f.pts[i + 1], Math.min(1, d / f.lens[i]));
     };
     const tmp = new THREE.Vector3();
     tickers.push((t) => {
       let k = 0;
       for (const f of flows)
         for (let j = 0; j < f.n; j++) {
-          at(f, (t * (2.2 / f.total) + f.off + j / f.n) % 1, tmp);
-          arr.set([tmp.x, tmp.y, 0.05], k++ * 3);
+          const d = (t * 2.4 + (f.off + j / f.n) * f.total) % f.total;
+          TRAIL.forEach(({ lag }, li) => {
+            walk(f, d - lag, tmp);
+            layers[li].arr.set([tmp.x, tmp.y, tmp.z + 0.05], k * 3);
+          });
+          k++;
         }
-      pg.attributes.position.needsUpdate = true;
+      for (const l of layers) l.pg.attributes.position.needsUpdate = true;
     });
+
+    const all = [...nodes.values()];
+    const xs = all.flatMap((b) => [b.x - b.r, b.x + b.r]);
+    const vias = spec.edges.flatMap((e) => (e.via ?? []).map(([, y]) => y));
+    const head = label(spec.heading, 0.55, 1, 600);
+    head.sprite.position.set((Math.min(...xs) + Math.max(...xs)) / 2, Math.max(...all.map((b) => b.y + b.r), ...vias) + 1.4, 0);
+    g.add(head.sprite);
 
     // a faint floor grid under each system
     const grid = new THREE.GridHelper(46, 46);
     grid.material = line(0.08);
-    grid.position.y = Math.min(...[...boxes.values()].map((b) => b.y - b.h / 2)) - 2.2;
+    grid.position.y = Math.min(...all.map((b) => b.y - b.r), ...vias) - 2.4;
     g.add(grid);
     return g;
   }
@@ -713,7 +841,7 @@ export function mountWorld(canvas: HTMLCanvasElement, opts: { reduced: boolean }
     arm.add(tag.sprite);
     g.add(arm);
     // runtime → arm link
-    g.add(segs([10.5, 1, 0, 12.6, 1, 0, 12.6, 1, 0, 12.6, -2.4, 0], line(0.8)));
+    g.add(segs([10.1, 1, 0, 12.6, 1, 0, 12.6, 1, 0, 12.6, -2.4, 0], line(0.8)));
 
     tickers.push((t) => {
       const s = (Math.sin(t * 0.9) + 1) / 2;
@@ -725,17 +853,10 @@ export function mountWorld(canvas: HTMLCanvasElement, opts: { reduced: boolean }
     scene.add(g);
   }
 
-  // ---------- 4. voice runtime, with the device fleet feeding it ----------
+  // ---------- 4. voice runtime ----------
   {
     const g = diagram(VOICE);
     g.position.copy(v3(POS.voice));
-    const m = line(0.7);
-    for (let i = 0; i < 5; i++) {
-      const dev = box(0.9, 0.25, 0.55, m);
-      dev.position.set(-20.5 + (i % 2) * 1.2, -2.2 + i * 1.3, 0);
-      g.add(dev);
-      g.add(segs([dev.position.x + 0.45, dev.position.y, 0, -14.9, 1, 0], line(0.18)));
-    }
     scene.add(g);
   }
 

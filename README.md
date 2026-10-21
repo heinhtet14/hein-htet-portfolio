@@ -4,7 +4,7 @@ Personal portfolio of Hein Htet: a black-and-white, monospace, datasheet-style s
 embedded ML, edge AI and edge LLMs. Work is filterable by "universe" (Edge AI & Embedded,
 Robotics, AI Systems, Backend, DevOps, Frontend).
 
-- **Astro**, static output, no UI framework. Client behaviour lives in `src/scripts/app.ts`.
+- **Astro**, static output, no UI framework. Pages: `/` (intro + scroll world), `/work`, `/about`, `/blog`, `/terminal`, all sharing `src/layouts/Page.astro` (header nav, contact footer). Each page loads only its own script from `src/scripts/` (`home.ts`, `work.ts`, `terminal.ts`).
 - **One serverless function**, `src/pages/api/ask.ts`. The terminal's `ask` command calls it,
   and it answers questions grounded only in `src/data/profile.ts`.
 

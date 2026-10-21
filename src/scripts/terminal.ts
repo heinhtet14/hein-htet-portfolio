@@ -1,3 +1,4 @@
+// The terminal page: a tiny shell over the profile data the page ships as JSON (#mm-data).
 import type { Project, Role, Universe, UniverseId } from "../data/profile";
 import type { profile as Profile } from "../data/profile";
 
@@ -11,50 +12,10 @@ type Data = {
 type Where = UniverseId | "all";
 
 const data: Data = JSON.parse(document.getElementById("mm-data")!.textContent!);
-const root = document.documentElement;
 const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
-const ALL = { name: "All", tagline: "every timeline at once." };
 
 const $ = <T extends HTMLElement>(sel: string) => document.querySelector<T>(sel)!;
 const uni = (id: string) => data.universes.find((u) => u.id === id);
-
-/* ---------------- Universes ---------------- */
-
-let current: Where = "all";
-
-function warp(id: Where) {
-  const u = id === "all" ? ALL : uni(id);
-  if (!u) return false;
-  current = id;
-
-  root.dataset.universe = id;
-  $("#u-note").textContent = u.tagline.charAt(0).toLowerCase() + u.tagline.slice(1);
-
-  document.querySelectorAll<HTMLButtonElement>("[data-warp]").forEach((b) => {
-    b.setAttribute("aria-pressed", String(b.dataset.warp === id));
-  });
-  document.querySelectorAll<HTMLElement>(".work > li").forEach((li) => {
-    const on = id === "all" || li.dataset.universes!.split(" ").includes(id);
-    li.hidden = !on;
-    li.classList.remove("fade");
-    if (on && !reduced) {
-      void li.offsetWidth;
-      li.classList.add("fade");
-    }
-  });
-
-  history.replaceState(null, "", id === "all" ? location.pathname : `#u/${id}`);
-  return true;
-}
-
-document.querySelectorAll<HTMLButtonElement>("[data-warp]").forEach((b) =>
-  b.addEventListener("click", () => warp(b.dataset.warp as Where)),
-);
-
-const fromHash = location.hash.match(/^#u\/(\w+)/)?.[1];
-if (fromHash && !warp(fromHash as Where)) warp("all");
-
-/* ---------------- Terminal ---------------- */
 
 const out = $("#term-out");
 const form = $<HTMLFormElement>("#term-form");
@@ -103,21 +64,22 @@ const commands: Record<string, { help: string; run: (args: string) => unknown }>
         const n = data.projects.filter((p) => p.universes.includes(u.id)).length;
         print(`${pad(u.id, 10)}${pad(u.name, 22)}${n} projects`);
       }
-      print("warp <id> filters the work list · warp all resets it");
+      print("ls <id> lists one · warp <id> opens the work page filtered to it");
     },
   },
   warp: {
-    help: "filter work: warp <universe|all>",
+    help: "open the work page: warp <universe|all>",
     run: (arg) => {
       const id = (arg || "all") as Where;
-      if (!warp(id)) return print(`no such universe: ${arg}. try 'universes'`, "err");
-      print(`now showing ${id === "all" ? "all work" : uni(id)!.name}`, "hi");
+      if (id !== "all" && !uni(id)) return print(`no such universe: ${arg}. try 'universes'`, "err");
+      print(`warping to ${id === "all" ? "all work" : uni(id)!.name}…`, "hi");
+      setTimeout(() => location.assign(id === "all" ? "/work/" : `/work/#u/${id}`), reduced ? 0 : 400);
     },
   },
   ls: {
     help: "list projects",
     run: (arg) => {
-      const where = (arg || current) as Where;
+      const where = (arg || "all") as Where;
       if (where !== "all" && !uni(where)) return print(`no such universe: ${arg}`, "err");
       const list = data.projects.filter((p) => where === "all" || p.universes.includes(where));
       for (const p of list) print(`${pad(p.slug, 20)}${pad(p.year, 6)}${p.title}`);
@@ -133,8 +95,7 @@ const commands: Record<string, { help: string; run: (args: string) => unknown }>
       print(p.summary);
       print(p.stack.join(" · "));
       if (p.link) print(`<a href="${esc(p.link.href)}" target="_blank" rel="noopener">${esc(p.link.label)}</a>`, "out", true);
-      const el = document.querySelector<HTMLDetailsElement>(`#p-${p.slug} details`);
-      if (el) el.open = true;
+      print(`<a href="/work/#p-${esc(p.slug)}">more on the work page →</a>`, "out", true);
     },
   },
   blog: {
@@ -246,83 +207,9 @@ document.addEventListener("keydown", (e) => {
   const t = e.target as HTMLElement;
   if (e.key === "/" && !/INPUT|TEXTAREA/.test(t.tagName) && !t.isContentEditable) {
     e.preventDefault();
-    $("#terminal").scrollIntoView({ behavior: reduced ? "auto" : "smooth" });
-    input.focus({ preventScroll: true });
+    input.focus();
   }
 });
 
 print("type 'help' to look around, or 'ask' something about my work.", "out");
 
-/* ---------------- Scroll world ---------------- */
-
-const worldEl = document.getElementById("world");
-const worldCanvas = document.getElementById("world-canvas") as HTMLCanvasElement | null;
-if (worldEl && worldCanvas) {
-  const caps = [...worldEl.querySelectorAll<HTMLLIElement>(".world-caps li")];
-  const bar = $("#world-bar");
-  const webgl = (() => {
-    try {
-      const c = document.createElement("canvas");
-      return Boolean(c.getContext("webgl2") || c.getContext("webgl"));
-    } catch {
-      return false;
-    }
-  })();
-
-  if (!webgl) {
-    worldEl.classList.add("flat");
-  } else {
-    let world: import("./world").WorldHandle | null = null;
-    let visible = false;
-
-    const progress = () => {
-      const r = worldEl.getBoundingClientRect();
-      const span = worldEl.offsetHeight - innerHeight;
-      return span > 0 ? Math.min(1, Math.max(0, -r.top / span)) : 0;
-    };
-    const update = () => {
-      const p = progress();
-      world?.setProgress(p);
-      bar.style.width = `${(p * 100).toFixed(2)}%`;
-      for (const li of caps) li.classList.toggle("on", p >= Number(li.dataset.from) && p < Number(li.dataset.to));
-    };
-
-    // Load three.js only when the world is about to be seen; animate only while it is on screen.
-    const io = new IntersectionObserver(
-      async ([e]) => {
-        visible = e.isIntersecting;
-        if (visible && !world) {
-          const { mountWorld } = await import("./world");
-          world = mountWorld(worldCanvas, { reduced });
-          update();
-        }
-        world?.setRunning(visible && !reduced);
-      },
-      { rootMargin: "50% 0px" },
-    );
-    io.observe(worldEl);
-    addEventListener("scroll", () => visible && requestAnimationFrame(update), { passive: true });
-    addEventListener("resize", update);
-    update();
-  }
-}
-
-/* ---------------- Archive lightbox ---------------- */
-
-const lightbox = document.getElementById("lightbox") as HTMLDialogElement | null;
-if (lightbox) {
-  const img = $<HTMLImageElement>("#lightbox-img");
-  const cap = $("#lightbox-cap");
-  document.querySelectorAll<HTMLButtonElement>("[data-photo]").forEach((b) =>
-    b.addEventListener("click", () => {
-      const thumb = b.querySelector("img")!;
-      img.src = b.dataset.photo!;
-      img.alt = thumb.alt;
-      cap.textContent = b.dataset.caption ?? "";
-      lightbox.showModal();
-    }),
-  );
-  lightbox.addEventListener("click", (e) => {
-    if (e.target === lightbox) lightbox.close();
-  });
-}

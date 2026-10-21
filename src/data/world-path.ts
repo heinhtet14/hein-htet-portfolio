@@ -60,14 +60,14 @@ export const STOPS: WorldStop[] = [
     title: "Mindroid agent runtime",
     body: "An open-source Rust runtime for agents: builds context, streams the model, loops through tools, and ships for cloud or edge.",
     portal: true,
-    keys: [view(POS.agent, [0, 0, 28], [0, -0.5, 0]), view(POS.agent, [-1, 0.5, 20], [-1, 0, 0])],
+    keys: [view(POS.agent, [0, 1.5, 29], [0, 1.2, 0]), view(POS.agent, [-1, 1.6, 22], [-1, 1.4, 0])],
   },
   {
     kicker: "06 · Magick Mind · memory",
     title: "Memory + knowledge",
     body: "Agents that remember past conversations and look things up in documents, measured on public long-memory benchmarks.",
     portal: true,
-    keys: [view(POS.memory, [0, 0.5, 26], [0, 0.5, 0]), view(POS.memory, [-3, 1, 18], [-2, 1, 0])],
+    keys: [view(POS.memory, [0, 0.5, 26], [0, 0.5, 0]), view(POS.memory, [-3, 0.4, 19.5], [-2, -0.6, 0])],
   },
   {
     kicker: "07 · world",

@@ -165,46 +165,13 @@ section {
 .bar nav a:hover {
   color: var(--fg);
 }
-/* Grouped sections: <details> so they open without JS; chrome.ts closes them. */
-.menu {
-  position: relative;
-}
-.menu summary {
-  color: var(--soft);
-  cursor: pointer;
-  list-style: none;
-}
-.menu summary::-webkit-details-marker {
-  display: none;
-}
-.menu summary::after {
-  content: " ▾";
-  color: var(--faint);
-}
-.menu summary:hover,
-.menu[open] summary {
+.bar nav a[aria-current="page"],
+.bar .brand[aria-current="page"] {
   color: var(--fg);
 }
-.menu[open] summary::after {
-  content: " ▴";
-}
-.menu > div {
-  position: absolute;
-  top: calc(100% + 12px);
-  left: -14px;
-  z-index: 50;
-  display: flex;
-  flex-direction: column;
-  min-width: 150px;
-  padding: 6px 0;
-  background: var(--bg);
-  border: 1px solid var(--rule);
-}
-.bar nav .menu a {
-  padding: 6px 14px;
-}
-.bar nav .menu a:hover {
-  background: var(--well);
+.bar nav a[aria-current="page"] {
+  background: var(--rgb) left bottom / 100% 2px no-repeat;
+  padding-bottom: 2px;
 }
 
 /* ---------- Hero ---------- */
@@ -581,34 +548,29 @@ section {
   text-shadow: var(--split);
 }
 
-/* ---------- Contact / footer ---------- */
-.contact h2 {
-  margin-bottom: 24px;
-  font-size: clamp(32px, 6vw, 52px);
-  font-weight: 600;
-  letter-spacing: -0.03em;
-}
-.contact dl {
-  display: grid;
-  grid-template-columns: 90px minmax(0, 1fr);
-  gap: 8px 20px;
-  margin: 0;
-}
-.contact dt {
-  color: var(--faint);
-}
-.contact dd {
-  margin: 0;
-  overflow-wrap: anywhere;
-}
+/* ---------- Footer: contact on every page ---------- */
 footer {
   margin-top: clamp(64px, 11vw, 112px);
-  padding: 20px 0 40px;
+  padding: 28px 0 40px;
   border-top: 2px solid var(--rule);
   color: var(--faint);
   font-size: 12px;
 }
 footer .wrap {
+  display: grid;
+  gap: 28px;
+}
+footer .say {
+  margin: 0 0 12px;
+  color: var(--fg);
+  font-size: clamp(22px, 4vw, 30px);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+footer .links {
+  font-size: 14px;
+}
+footer .meta {
   display: flex;
   flex-wrap: wrap;
   justify-content: space-between;
@@ -662,7 +624,7 @@ footer button:hover {
   .bar nav {
     gap: 14px;
   }
-  .bar nav > a[href="#terminal"] {
+  .bar nav > a[href="#contact"] {
     display: none;
   }
   .acc summary,
@@ -1084,7 +1046,8 @@ body {
 .posts > li[hidden] {
   display: none;
 }
-.posts time {
+.posts time,
+.posts .when {
   color: var(--faint);
   font-size: 13px;
   font-variant-numeric: tabular-nums;
@@ -1135,10 +1098,10 @@ body {
   }
 }
 
-.blog-head {
+.page-head {
   padding-top: clamp(48px, 9vw, 88px);
 }
-.blog-head h1,
+.page-head h1,
 .post h1 {
   font-size: clamp(28px, 5vw, 44px);
   letter-spacing: -0.02em;
@@ -1148,10 +1111,10 @@ body {
   margin: 16px 0 28px;
   color: var(--soft);
 }
-.year {
+section.year {
   padding-top: 48px;
 }
-.year[hidden] {
+section.year[hidden] {
   display: none;
 }
 

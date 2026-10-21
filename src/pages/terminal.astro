@@ -1,0 +1,55 @@
+---
+import Page from "../layouts/Page.astro";
+import { profile, projects, roles, universes } from "../data/profile";
+import { KINDS, getPosts, isoDate } from "../data/blog";
+
+const posts = await getPosts();
+// Shipped to the terminal script; keep it to what the commands print.
+const clientData = {
+  profile,
+  universes,
+  roles,
+  projects: projects.map(({ slug, title, year, universes, summary, metric, stack, link }) => ({
+    slug,
+    title,
+    year,
+    universes,
+    summary,
+    metric,
+    stack,
+    link,
+  })),
+  posts: posts.map((p) => ({ id: p.id, title: p.data.title, date: isoDate(p.data.date), kind: KINDS[p.data.kind].label })),
+};
+---
+
+<Page active="terminal" title="Terminal · Hein Htet" description="A small shell over my work: list projects, open one, or ask a question about it.">
+  <section class="page-head" aria-labelledby="terminal-h">
+    <p class="eyebrow">Terminal <span>for old times' sake</span></p>
+    <h1 id="terminal-h">Ask my mind.</h1>
+    <p class="lede">A tiny shell over this site. List projects, open one, or <code>ask</code> a question about my work.</p>
+  </section>
+
+  <div class="term">
+    <div class="term-head"><span>/dev/ttyHH0</span><span>115200 8N1</span></div>
+    <div class="term-body" id="term-out" role="log" aria-live="polite"></div>
+    <form class="term-form" id="term-form" autocomplete="off">
+      <label class="prompt" for="term-in" id="term-prompt">~ $</label>
+      <input id="term-in" name="cmd" spellcheck="false" autocapitalize="off" aria-label="Terminal command" />
+    </form>
+  </div>
+  <div class="hints">
+    {
+      ["help", "ls edge", "open edge-dl", "ask what runs on the edge?"].map((h) => (
+        <button type="button" data-run={h}>
+          {h}
+        </button>
+      ))
+    }
+  </div>
+
+  <script type="application/json" id="mm-data" set:html={JSON.stringify(clientData).replace(/</g, "\\u003c")} />
+  <script>
+    import "../scripts/terminal";
+  </script>
+</Page>
