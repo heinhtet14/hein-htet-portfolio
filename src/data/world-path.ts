@@ -31,7 +31,7 @@ export const STOPS: WorldStop[] = [
   {
     kicker: "01 · edge",
     title: "Models that fit the chip",
-    body: "Pruned, quantized and compiled networks, and small LLMs, running on the board itself: NVIDIA Jetson and Rockchip NPUs.",
+    body: "Pruned, quantized and compiled networks, and small LLMs, running on the board itself: NVIDIA Jetson and the Rockchip RK3588 NPU.",
     keys: [view(POS.chip, [0, 15, 27], [0, 2, 0]), view(POS.chip, [-3.5, 8, 13], [-9, 2.2, 0]), view(POS.chip, [14.5, 6.5, 11], [9.5, 0.8, 0])],
   },
   {

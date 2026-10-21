@@ -538,7 +538,7 @@ export function mountWorld(canvas: HTMLCanvasElement, opts: { reduced: boolean }
     rk.add(put(solid(1.7, 0.25, 0.5), 3.6, RT + 0.12, -1.3)); // M.2 key-M slot
     rk.add(put(solid(0.5, 0.25, 1.9), -5.15, RT + 0.12, -0.7)); // MIPI CSI
     g.add(rk);
-    const rl = label("ROCKCHIP", 0.62, 1, 600);
+    const rl = label("ROCKCHIP RK3588", 0.62, 1, 600);
     rl.sprite.position.set(8.9, 3.2, 0.1);
     g.add(rl.sprite);
 

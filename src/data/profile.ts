@@ -71,7 +71,7 @@ export const interests: Interest[] = [
   {
     name: "Embedded ML",
     line: "Models and control loops that live on MCUs and small boards, inside a power and memory budget.",
-    evidence: "ESP32 · STM32 · Jetson · Rockchip · dependency-free C",
+    evidence: "ESP32 · STM32 · Jetson · RK3588 · dependency-free C",
   },
   {
     name: "Edge AI",
