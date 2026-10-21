@@ -1,0 +1,396 @@
+---
+import Base from "../layouts/Base.astro";
+import Logo from "../components/Logo.astro";
+import { interests, profile, projects, roles, universes } from "../data/profile";
+import { brandColor, iconFor, isWordmark, stackGroups } from "../data/stack";
+import { archive } from "../data/archive";
+import activity from "../data/activity.json";
+import { STOPS, captionRanges } from "../data/world-path";
+import { KINDS, getPosts, isoDate } from "../data/blog";
+
+const posts = await getPosts();
+const latest = posts.slice(0, 3);
+
+// Activity: 53 weeks ending on the snapshot date, Sunday-first columns like GitHub's calendar.
+const end = new Date(`${activity.generated}T00:00:00Z`);
+const start = new Date(end);
+start.setUTCDate(start.getUTCDate() - 364 - end.getUTCDay());
+const days: { date: string; n: number; col: number; row: number }[] = [];
+for (let d = new Date(start), i = 0; d <= end; d.setUTCDate(d.getUTCDate() + 1), i++) {
+  const date = d.toISOString().slice(0, 10);
+  days.push({ date, n: (activity.days as Record<string, number>)[date] ?? 0, col: Math.floor(i / 7), row: i % 7 });
+}
+const yearTotal = days.reduce((a, d) => a + d.n, 0);
+const activeDays = days.filter((d) => d.n > 0).length;
+const level = (n: number) => (n === 0 ? 0 : n === 1 ? 1 : n <= 3 ? 2 : n <= 6 ? 3 : 4);
+const months = days
+  .filter((d) => d.row === 0 && new Date(`${d.date}T00:00:00Z`).getUTCDate() <= 7)
+  .map((d) => ({ col: d.col, label: new Date(`${d.date}T00:00:00Z`).toLocaleString("en", { month: "short", timeZone: "UTC" }) }));
+const CELL = 11, GAP = 3, weeks = days[days.length - 1].col + 1;
+
+const ranges = captionRanges();
+const worldCaps = STOPS.map((s, i) => ({ ...s, ...ranges[i] }));
+
+const glyphOf = Object.fromEntries(universes.map((u) => [u.id, u.glyph]));
+
+// Shipped to the terminal script; keep it to what the commands print.
+const clientData = {
+  profile,
+  universes,
+  roles,
+  projects: projects.map(({ slug, title, year, universes, summary, metric, stack, link }) => ({
+    slug,
+    title,
+    year,
+    universes,
+    summary,
+    metric,
+    stack,
+    link,
+  })),
+  posts: posts.map((p) => ({ id: p.id, title: p.data.title, date: isoDate(p.data.date), kind: KINDS[p.data.kind].label })),
+};
+---
+
+<Base
+  title={profile.name}
+  description={`${profile.name}, ${profile.title}. Embedded ML, edge AI and on-device LLMs, plus robotics, backend and DevOps work.`}
+>
+  <div class="wrap">
+    <header class="bar">
+      <a class="brand" href="#top">HH-01</a>
+      <span class="rev">rev 2026.10</span>
+      <nav aria-label="Sections">
+        <a href="#focus">focus</a>
+        <a href="#stack">stack</a>
+        <a href="#work">work</a>
+        <a href="#experience">experience</a>
+        <a href="#archive">archive</a>
+        <a href="/blog/">blog</a>
+        <a href="#terminal">terminal</a>
+        <a href="#contact">contact</a>
+      </nav>
+    </header>
+
+    <main id="top">
+      <section class="hero" aria-labelledby="name">
+        <p class="part">embedded-ml / edge-ai / edge-llm · {profile.location}</p>
+        <h1 id="name">Hein Htet <span>(Jeremy)</span></h1>
+        <p class="role">{profile.title}</p>
+        <p class="lede">
+          I put models on small hardware: embedded ML, edge AI, and LLMs that run on the device itself. Right now I lead
+          AI architecture at Magick Mind, giving robots and wearables an on-platform mind. Before that I took a
+          humanoid's walking policy from simulation onto the robot at 50 Hz, and squeezed CNNs and small LLMs onto a
+          Jetson Nano.
+        </p>
+        <ul class="links">
+          <li><a href={`mailto:${profile.contact.email}`}>email</a></li>
+          <li><a href={profile.contact.github} target="_blank" rel="noopener">github</a></li>
+          <li><a href={profile.contact.linkedin} target="_blank" rel="noopener">linkedin</a></li>
+          <li><a href="/hein-htet-resume.pdf" download>resume.pdf</a></li>
+        </ul>
+      </section>
+
+      <section id="world" class="world" aria-label="A scroll-through world of my work">
+        <div class="world-stage">
+          <canvas id="world-canvas" aria-hidden="true"></canvas>
+          <ol class="world-caps">
+            {
+              worldCaps.map((c) => (
+                <li data-from={c.from} data-to={c.to}>
+                  <span class="k">{c.kicker}</span>
+                  <h2>{c.title}</h2>
+                  <p>{c.body}</p>
+                </li>
+              ))
+            }
+          </ol>
+          <div class="world-bar" aria-hidden="true"><span id="world-bar"></span></div>
+          <p class="world-hint" aria-hidden="true">scroll ↓</p>
+        </div>
+      </section>
+
+      <section id="focus" aria-labelledby="focus-h">
+        <h2 class="eyebrow" id="focus-h">01 Focus <span>what I care about most</span></h2>
+        <div class="focus">
+          {
+            interests.map((it, i) => (
+              <div>
+                <span class="pin">PIN {String(i + 1).padStart(2, "0")}</span>
+                <h3>{it.name}</h3>
+                <p>{it.line}</p>
+                <p class="ev">{it.evidence}</p>
+              </div>
+            ))
+          }
+        </div>
+      </section>
+
+      <section id="stack" aria-labelledby="stack-h">
+        <h2 class="eyebrow" id="stack-h">02 Stack <span>languages and tools</span></h2>
+        <div class="stack-groups">
+          {
+            stackGroups.map((g) => (
+              <div class="stack-group">
+                <h3>{g.name}</h3>
+                <ul class="tiles">
+                  {g.items.map((name) => (
+                    <li style={`--brand:${brandColor(name)}`}>
+                      <Logo name={name} size={22} />
+                      <span class={isWordmark(name) ? "sr-only" : undefined}>{name}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))
+          }
+        </div>
+      </section>
+
+      <section id="work" aria-labelledby="work-h">
+        <h2 class="eyebrow" id="work-h">03 Work <span>pick a universe</span></h2>
+        <div class="filter" role="group" aria-label="Filter work by area">
+          <button type="button" data-warp="all" aria-pressed="true">All</button>
+          {
+            universes.map((u) => (
+              <button type="button" data-warp={u.id} aria-pressed="false">
+                <span class="glyph" aria-hidden="true">
+                  {u.glyph}
+                </span>
+                {u.name}
+              </button>
+            ))
+          }
+        </div>
+        <p class="filter-note" id="u-note" aria-live="polite">every timeline at once.</p>
+
+        <ul class="work">
+          {
+            projects.map((p) => (
+              <li id={`p-${p.slug}`} data-universes={p.universes.join(" ")}>
+                <details>
+                  <summary>
+                    <span class="year">{p.year}</span>
+                    <h3>{p.title}</h3>
+                    <span class="marks" title={p.universes.join(", ")}>
+                      {p.universes.map((u) => glyphOf[u]).join("")}
+                    </span>
+                    <p class="one">{p.summary}</p>
+                    <span class="plus" aria-hidden="true" />
+                  </summary>
+                  <div class="more">
+                    {p.metric && <p class="metric">{p.metric}</p>}
+                    {p.points.length > 0 && (
+                      <ul>
+                        {p.points.map((pt) => (
+                          <li>{pt}</li>
+                        ))}
+                      </ul>
+                    )}
+                    <ul class="stack-inline">
+                      {p.stack.map((name) => (
+                        <li>
+                          {iconFor(name) && <Logo name={name} size={13} />}
+                          {isWordmark(name) ? <span class="sr-only">{name}</span> : name}
+                        </li>
+                      ))}
+                    </ul>
+                    {p.link && (
+                      <p class="stack">
+                        <a href={p.link.href} target="_blank" rel="noopener">
+                          {p.link.label} ↗
+                        </a>
+                      </p>
+                    )}
+                  </div>
+                </details>
+              </li>
+            ))
+          }
+        </ul>
+      </section>
+
+      <section id="experience" aria-labelledby="exp-h">
+        <h2 class="eyebrow" id="exp-h">04 Experience <span>where I've been</span></h2>
+        <ol class="roles">
+          {
+            roles.map((r) => (
+              <li>
+                <div class="when">{r.period}</div>
+                <div>
+                  <h3>{r.org}</h3>
+                  <div class="title">
+                    {r.title} · {r.place}
+                  </div>
+                  <ul>
+                    {r.points.map((pt) => (
+                      <li>{pt}</li>
+                    ))}
+                  </ul>
+                </div>
+              </li>
+            ))
+          }
+        </ol>
+        <div class="aside">
+          <div>
+            <h3>Education</h3>
+            <p>{profile.education.school}</p>
+            <p>{profile.education.degree}, {profile.education.note}</p>
+          </div>
+          <div>
+            <h3>Also</h3>
+            <ul>{profile.honors.map((h) => <li>{h}</li>)}</ul>
+          </div>
+        </div>
+      </section>
+
+      <section id="activity" aria-labelledby="activity-h">
+        <h2 class="eyebrow" id="activity-h">05 Activity <span>commits, last 12 months</span></h2>
+        <div class="heat-wrap">
+          <svg
+            class="heat"
+            viewBox={`0 0 ${weeks * (CELL + GAP) + 30} ${7 * (CELL + GAP) + 18}`}
+            role="img"
+            aria-label={`${yearTotal} commits on ${activeDays} days in the last year`}
+          >
+            {months.map((m) => (
+              <text x={30 + m.col * (CELL + GAP)} y="10" class="heat-m">
+                {m.label}
+              </text>
+            ))}
+            {[1, 3, 5].map((r) => (
+              <text x="0" y={18 + r * (CELL + GAP) + 9} class="heat-m">
+                {["", "Mon", "", "Wed", "", "Fri", ""][r]}
+              </text>
+            ))}
+            {days.map((d) => (
+              <rect
+                x={30 + d.col * (CELL + GAP)}
+                y={18 + d.row * (CELL + GAP)}
+                width={CELL}
+                height={CELL}
+                class={`l${level(d.n)}`}
+              >
+                <title>{`${d.date}: ${d.n} commit${d.n === 1 ? "" : "s"}`}</title>
+              </rect>
+            ))}
+          </svg>
+        </div>
+        <p class="heat-note">
+          <span>
+            <b>{yearTotal}</b> commits on {activeDays} days across {activity.repos} repos, most of them private. Counted
+            from local git history; snapshot {activity.generated}.
+          </span>
+          <span class="heat-key" aria-hidden="true">less <i class="l0"></i><i class="l1"></i><i class="l2"></i><i class="l3"></i><i class="l4"></i> more</span>
+        </p>
+      </section>
+
+      <section id="archive" aria-labelledby="archive-h">
+        <h2 class="eyebrow" id="archive-h">06 Archive <span>2017–2021, before the edge</span></h2>
+        <ol class="archive">
+          {
+            archive.map((a) => (
+              <li>
+                <div class="when">{a.year}</div>
+                <div>
+                  <h3>{a.title}</h3>
+                  <div class="title">{a.role}</div>
+                  <p>{a.summary}</p>
+                  <ul class="shots">
+                    {a.photos.map((ph) => (
+                      <li>
+                        <button type="button" data-photo={`/archive/${ph.file}`} data-caption={ph.caption}>
+                          <img src={`/archive/${ph.file}`} alt={ph.alt} loading="lazy" decoding="async" />
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </li>
+            ))
+          }
+        </ol>
+        <dialog class="lightbox" id="lightbox">
+          <form method="dialog"><button class="close" aria-label="Close">×</button></form>
+          <img id="lightbox-img" alt="" />
+          <p id="lightbox-cap"></p>
+        </dialog>
+      </section>
+
+      <section id="writing" aria-labelledby="writing-h">
+        <h2 class="eyebrow" id="writing-h">07 Writing <span>open source · theory · build logs</span></h2>
+        {
+          latest.length ? (
+            <ol class="posts">
+              {latest.map((p) => (
+                <li>
+                  <time datetime={isoDate(p.data.date)}>{isoDate(p.data.date)}</time>
+                  <div>
+                    <a class="t" href={`/blog/${p.id}/`}>
+                      {p.data.title}
+                    </a>
+                    {p.data.draft && <span class="badge">draft</span>}
+                    <p>{p.data.description}</p>
+                    <p class="meta">{KINDS[p.data.kind].label}</p>
+                  </div>
+                </li>
+              ))}
+            </ol>
+          ) : (
+            <p class="empty">First posts are on the way: open-source write-ups and notes on the theory behind edge AI.</p>
+          )
+        }
+        <p class="more-link"><a href="/blog/">all writing →</a></p>
+      </section>
+
+      <section id="terminal" aria-labelledby="terminal-h">
+        <h2 class="eyebrow" id="terminal-h">08 Terminal <span>for old times' sake</span></h2>
+        <div class="term">
+          <div class="term-head"><span>/dev/ttyHH0</span><span>115200 8N1</span></div>
+          <div class="term-body" id="term-out" role="log" aria-live="polite"></div>
+          <form class="term-form" id="term-form" autocomplete="off">
+            <label class="prompt" for="term-in" id="term-prompt">~ $</label>
+            <input id="term-in" name="cmd" spellcheck="false" autocapitalize="off" aria-label="Terminal command" />
+          </form>
+        </div>
+        <div class="hints">
+          {
+            ["help", "ls edge", "open edge-dl", "ask what runs on the edge?"].map((h) => (
+              <button type="button" data-run={h}>
+                {h}
+              </button>
+            ))
+          }
+        </div>
+      </section>
+
+      <section id="contact" class="contact" aria-labelledby="contact-h">
+        <p class="eyebrow">09 Contact</p>
+        <h2 id="contact-h">Say hello.</h2>
+        <dl>
+          <dt>email</dt>
+          <dd><a href={`mailto:${profile.contact.email}`}>{profile.contact.email}</a></dd>
+          <dt>phone</dt>
+          <dd><a href={`tel:${profile.contact.phone.replace(/\s/g, "")}`}>{profile.contact.phone}</a></dd>
+          <dt>linkedin</dt>
+          <dd><a href={profile.contact.linkedin} target="_blank" rel="noopener">in/hein-htet-jeremy</a></dd>
+          <dt>github</dt>
+          <dd><a href={profile.contact.github} target="_blank" rel="noopener">@{profile.handle}</a></dd>
+        </dl>
+      </section>
+    </main>
+  </div>
+
+  <footer>
+    <div class="wrap">
+      <span>{profile.location} · <span id="clock">local time</span></span>
+      <span>© {new Date().getFullYear()} {profile.name} · <button type="button" id="theme">invert</button></span>
+    </div>
+  </footer>
+
+  <script type="application/json" id="mm-data" set:html={JSON.stringify(clientData).replace(/</g, "\\u003c")} />
+  <script>
+    import "../scripts/app";
+  </script>
+</Base>

@@ -1,0 +1,54 @@
+---
+import { iconFor } from "../data/stack";
+
+interface Props {
+  name: string;
+  size?: number;
+}
+const { name, size = 20 } = Astro.props;
+const icon = iconFor(name);
+// Fallback: first letters of each word, e.g. "Some Tool" → "ST", "Tool" → "TO".
+const mono = name
+  .split(/\s+/)
+  .map((w) => w[0])
+  .join("")
+  .slice(0, 2)
+  .padEnd(2, name[1] ?? "")
+  .toUpperCase();
+
+const vb = icon && "viewBox" in icon ? icon.viewBox.split(" ").map(Number) : null;
+const wordmark = Boolean(vb && "wordmark" in icon! && icon.wordmark);
+// Wordmarks sit a little shorter than square marks so their letters match the label size,
+// and grow sideways from there.
+const height = wordmark ? Math.round(size * 0.68) : size;
+const width = wordmark && vb ? Math.round((height * vb[2]) / vb[3]) : size;
+---
+
+{
+  !icon ? (
+    <span class="logo mono" style={`width:${size}px;height:${size}px`} aria-hidden="true">
+      {mono}
+    </span>
+  ) : "path" in icon ? (
+    <svg class="logo" width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d={icon.path} />
+    </svg>
+  ) : "mask" in icon ? (
+    <span
+      class="logo masked"
+      style={`width:${size}px;height:${size}px;--mask:url("${icon.mask}")`}
+      aria-hidden="true"
+    />
+  ) : (
+    <svg
+      class="logo"
+      width={width}
+      height={height}
+      viewBox={icon.viewBox}
+      fill="currentColor"
+      preserveAspectRatio="xMidYMid meet"
+      aria-hidden="true"
+      set:html={icon.body}
+    />
+  )
+}

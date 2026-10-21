@@ -1,0 +1,86 @@
+---
+import { render } from "astro:content";
+import Page from "../../layouts/Page.astro";
+import { KINDS, getPosts, isoDate, readingTime, type Post } from "../../data/blog";
+
+export async function getStaticPaths() {
+  const posts = await getPosts();
+  return posts.map((post, i) => ({
+    params: { slug: post.id },
+    // posts are newest first: the next-newer one is before it in the list
+    props: { post, newer: posts[i - 1], older: posts[i + 1] },
+  }));
+}
+
+interface Props {
+  post: Post;
+  newer?: Post;
+  older?: Post;
+}
+const { post, newer, older } = Astro.props;
+const { Content, headings } = await render(post);
+const d = post.data;
+const toc = headings.filter((h) => h.depth === 2);
+---
+
+<Page title={`${d.title} · Hein Htet`} description={d.description}>
+  <article class="post">
+    <header>
+      <p class="eyebrow">
+        <a href={`/blog/#${d.kind}`}>{KINDS[d.kind].label}</a>
+        <span>
+          <time datetime={isoDate(d.date)}>{isoDate(d.date)}</time>
+          {d.updated && <> · updated <time datetime={isoDate(d.updated)}>{isoDate(d.updated)}</time></>} · {readingTime(post)} min read
+        </span>
+      </p>
+      <h1>{d.title}{d.draft && <span class="badge">draft</span>}</h1>
+      <p class="lede">{d.description}</p>
+      {
+        d.contribution && (
+          <dl class="contrib">
+            <dt>repo</dt>
+            <dd>{d.contribution.repo}</dd>
+            <dt>change</dt>
+            <dd>
+              <a href={d.contribution.url} target="_blank" rel="noopener">
+                {d.contribution.url.replace(/^https?:\/\/(www\.)?/, "")}
+              </a>
+            </dd>
+            {d.contribution.status && (
+              <>
+                <dt>status</dt>
+                <dd>{d.contribution.status}</dd>
+              </>
+            )}
+          </dl>
+        )
+      }
+      {
+        toc.length > 2 && (
+          <nav class="toc" aria-label="Contents">
+            <ol>
+              {toc.map((h) => (
+                <li>
+                  <a href={`#${h.slug}`}>{h.text}</a>
+                </li>
+              ))}
+            </ol>
+          </nav>
+        )
+      }
+    </header>
+
+    <div class="prose">
+      <Content />
+    </div>
+
+    <footer class="post-foot">
+      {d.tags.length > 0 && <p class="tags">{d.tags.map((t) => `#${t}`).join("  ")}</p>}
+      <nav class="pager" aria-label="More posts">
+        {older ? <a href={`/blog/${older.id}/`}>← {older.data.title}</a> : <span />}
+        {newer ? <a href={`/blog/${newer.id}/`}>{newer.data.title} →</a> : <span />}
+      </nav>
+      <p><a href="/blog/">all writing</a></p>
+    </footer>
+  </article>
+</Page>

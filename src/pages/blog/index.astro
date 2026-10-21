@@ -1,0 +1,83 @@
+---
+import Page from "../../layouts/Page.astro";
+import { KINDS, getPosts, isoDate, readingTime, type Kind } from "../../data/blog";
+
+const posts = await getPosts();
+const kinds = Object.keys(KINDS) as Kind[];
+const count = (k: Kind) => posts.filter((p) => p.data.kind === k).length;
+const years = [...new Set(posts.map((p) => p.data.date.getUTCFullYear()))];
+---
+
+<Page
+  title="Writing · Hein Htet"
+  description="Open-source contributions, theory I've learned, and notes from building edge AI and robotics."
+>
+  <section class="blog-head" aria-labelledby="blog-h">
+    <p class="eyebrow">Writing <span>open source · theory · build logs</span></p>
+    <h1 id="blog-h">Notes from the edge.</h1>
+    <p class="lede">
+      What I contributed to other people's projects, the theory I had to learn to do the work, and what broke along the way.
+    </p>
+    <div class="filter kinds" role="group" aria-label="Filter posts">
+      <button type="button" data-kind="all" aria-pressed="true">all <span>{posts.length}</span></button>
+      {
+        kinds.map((k) => (
+          <button type="button" data-kind={k} aria-pressed="false">
+            {KINDS[k].label} <span>{count(k)}</span>
+          </button>
+        ))
+      }
+    </div>
+  </section>
+
+  {
+    posts.length === 0 ? (
+      <p class="empty">No posts yet. The first ones are on the way; <a href="/rss.xml">subscribe via RSS</a> to catch them.</p>
+    ) : (
+      years.map((y) => (
+        <section class="year" data-year={y}>
+          <h2 class="eyebrow">{y}</h2>
+          <ol class="posts">
+            {posts
+              .filter((p) => p.data.date.getUTCFullYear() === y)
+              .map((p) => (
+                <li data-kind={p.data.kind}>
+                  <time datetime={isoDate(p.data.date)}>{isoDate(p.data.date).slice(5)}</time>
+                  <div>
+                    <a class="t" href={`/blog/${p.id}/`}>
+                      {p.data.title}
+                    </a>
+                    {p.data.draft && <span class="badge">draft</span>}
+                    <p>{p.data.description}</p>
+                    <p class="meta">
+                      {KINDS[p.data.kind].label}
+                      {p.data.contribution && ` · ${p.data.contribution.repo}`} · {readingTime(p)} min
+                      {p.data.tags.length > 0 && ` · ${p.data.tags.map((t) => `#${t}`).join(" ")}`}
+                    </p>
+                  </div>
+                </li>
+              ))}
+          </ol>
+        </section>
+      ))
+    )
+  }
+
+  <script>
+    // Kind filter: hide posts of other kinds, then hide years left empty.
+    const buttons = document.querySelectorAll<HTMLButtonElement>(".kinds button");
+    const pick = (kind: string) => {
+      buttons.forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.kind === kind)));
+      document.querySelectorAll<HTMLElement>(".posts li").forEach((li) => {
+        li.hidden = kind !== "all" && li.dataset.kind !== kind;
+      });
+      document.querySelectorAll<HTMLElement>(".year").forEach((y) => {
+        y.hidden = !y.querySelector(".posts li:not([hidden])");
+      });
+      history.replaceState(null, "", kind === "all" ? location.pathname : `#${kind}`);
+    };
+    buttons.forEach((b) => b.addEventListener("click", () => pick(b.dataset.kind!)));
+    const fromHash = location.hash.slice(1);
+    if ([...buttons].some((b) => b.dataset.kind === fromHash)) pick(fromHash);
+  </script>
+</Page>

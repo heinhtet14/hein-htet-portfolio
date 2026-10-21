@@ -1,0 +1,29 @@
+{
+  "name": "hein-htet-portfolio",
+  "version": "1.0.0",
+  "description": "Multiverse retro-terminal portfolio of Hein Htet",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "check": "astro check",
+    "activity": "node scripts/activity.mjs"
+  },
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.135.0",
+    "@astrojs/vercel": "^11.0.16",
+    "astro": "^7.4.1",
+    "simple-icons": "^16.35.0",
+    "three": "^0.186.1"
+  },
+  "devDependencies": {
+    "@astrojs/check": "^0.9.11",
+    "@types/node": "^26.6.5",
+    "@types/three": "^0.186.0",
+    "typescript": "^6.0.3"
+  },
+  "private": true
+}

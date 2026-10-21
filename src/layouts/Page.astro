@@ -1,0 +1,37 @@
+---
+// Chrome for pages other than the home page: a short header, the content, the shared footer.
+import Base from "./Base.astro";
+import { profile } from "../data/profile";
+
+interface Props {
+  title: string;
+  description: string;
+}
+const { title, description } = Astro.props;
+---
+
+<Base title={title} description={description}>
+  <link slot="head" rel="alternate" type="application/rss+xml" title={`${profile.name}: writing`} href="/rss.xml" />
+  <div class="wrap">
+    <header class="bar">
+      <a class="brand" href="/">HH-01</a>
+      <span class="rev">writing</span>
+      <nav aria-label="Site">
+        <a href="/">home</a>
+        <a href="/#work">work</a>
+        <a href="/blog/">blog</a>
+        <a href="/rss.xml">rss</a>
+        <a href="/#contact">contact</a>
+      </nav>
+    </header>
+    <main>
+      <slot />
+    </main>
+  </div>
+  <footer>
+    <div class="wrap">
+      <span>{profile.location} · <span id="clock">local time</span></span>
+      <span>© {new Date().getFullYear()} {profile.name} · <button type="button" id="theme">invert</button></span>
+    </div>
+  </footer>
+</Base>
