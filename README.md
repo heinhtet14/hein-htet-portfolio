@@ -76,12 +76,12 @@ shows the newest three posts, `/blog/` lists them all with a kind filter, `/rss.
 feed, and the terminal's `blog` command lists them too. Restart `npm run dev` after editing
 `src/content.config.ts`.
 
-## Hover colour
+## Hover
 
-The site is black and white until you point at something: links and buttons get an
-R/G/B split and gradient underline, stack logos light up in their brand colour (or one of
-`--r`/`--g`/`--b` when the brand colour would vanish on black or white), and archive
-photos turn to colour. The three accents are tokens at the top of `src/styles/global.css`.
+The site stays black and white. Pointing at a link, a project or a button flips it to
+inverse video, like a terminal selection. Stack logos light up in their brand colour (or one of
+`--r`/`--g`/`--b` when the brand colour would vanish on black or white), and archive photos
+turn to colour; those tokens sit at the top of `src/styles/global.css`.
 
 ## Activity graph
 

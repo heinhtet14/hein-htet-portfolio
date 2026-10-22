@@ -10,12 +10,10 @@
   --well: #f4f4f4;
   --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
   --gutter: clamp(16px, 5vw, 40px);
-  /* the only colour on the site, and only on hover */
+  /* fallback tints for stack logos that have no brand colour of their own */
   --r: #ff2d55;
   --g: #00c46a;
   --b: #2f6bff;
-  --rgb: linear-gradient(90deg, var(--r), var(--g), var(--b));
-  --split: -1.5px 0 rgb(255 45 85 / 0.75), 1.5px 0 rgb(47 107 255 / 0.75);
   color-scheme: light;
 }
 
@@ -31,7 +29,6 @@
     --r: #ff4d6d;
     --g: #2bff88;
     --b: #4d8dff;
-    --split: -1.5px 0 rgb(255 77 109 / 0.8), 1.5px 0 rgb(77 141 255 / 0.8);
     color-scheme: dark;
   }
 }
@@ -46,7 +43,6 @@
   --r: #ff4d6d;
   --g: #2bff88;
   --b: #4d8dff;
-  --split: -1.5px 0 rgb(255 77 109 / 0.8), 1.5px 0 rgb(77 141 255 / 0.8);
   color-scheme: dark;
 }
 
@@ -91,10 +87,15 @@ a {
   text-decoration-color: var(--faint);
   text-underline-offset: 3px;
 }
-a:hover {
+/* Hover is inverse video, like a terminal selection: the text flips onto a solid block.
+   The box-shadow widens the block without moving the text. */
+a:hover,
+.acc summary:hover h3,
+.work summary:hover h3 {
+  background: var(--fg);
+  box-shadow: 0 0 0 2px var(--fg);
+  color: var(--bg);
   text-decoration: none;
-  background: var(--rgb) left bottom / 100% 2px no-repeat;
-  text-shadow: var(--split);
 }
 
 :focus-visible {
@@ -163,15 +164,16 @@ section {
   text-decoration: none;
 }
 .bar nav a:hover {
-  color: var(--fg);
+  color: var(--bg);
 }
 .bar nav a[aria-current="page"],
 .bar .brand[aria-current="page"] {
   color: var(--fg);
 }
-.bar nav a[aria-current="page"] {
-  background: var(--rgb) left bottom / 100% 2px no-repeat;
-  padding-bottom: 2px;
+.bar nav a[aria-current="page"]:not(:hover) {
+  text-decoration: underline;
+  text-decoration-color: var(--fg);
+  text-decoration-thickness: 2px;
 }
 
 /* ---------- Hero ---------- */
@@ -262,10 +264,9 @@ section {
   font-size: 18px;
   font-weight: 600;
 }
-.acc summary:hover h3 {
-  text-shadow: var(--split);
-  background: var(--rgb) left bottom / 100% 2px no-repeat;
-  display: inline;
+.acc h3,
+.work h3 {
+  justify-self: start; /* hug the words, so the hover block does too */
 }
 .acc .sub {
   grid-column: 2;
@@ -330,12 +331,8 @@ section {
   cursor: pointer;
 }
 .filter button:hover {
-  border-color: transparent;
-  background:
-    linear-gradient(var(--bg), var(--bg)) padding-box,
-    var(--rgb) border-box;
+  border-color: var(--fg);
   color: var(--fg);
-  text-shadow: var(--split);
 }
 .filter button[aria-pressed="true"] {
   border-color: var(--fg);
@@ -388,11 +385,6 @@ section {
 .work h3 {
   font-size: 18px;
   font-weight: 600;
-}
-.work summary:hover h3 {
-  text-shadow: var(--split);
-  background: var(--rgb) left bottom / 100% 2px no-repeat;
-  display: inline;
 }
 .work .one {
   grid-column: 2;
@@ -544,8 +536,8 @@ section {
   content: "$ ";
 }
 .hints button:hover {
-  color: var(--fg);
-  text-shadow: var(--split);
+  background: var(--fg);
+  color: var(--bg);
 }
 
 /* ---------- Footer: contact on every page ---------- */
@@ -587,8 +579,9 @@ footer button {
   text-underline-offset: 3px;
 }
 footer button:hover {
-  color: var(--fg);
-  text-shadow: var(--split);
+  background: var(--fg);
+  color: var(--bg);
+  text-decoration: none;
 }
 
 /* ---------- Motion ---------- */
@@ -897,8 +890,7 @@ footer button:hover {
   filter: none;
 }
 .shots button:hover {
-  border-color: transparent;
-  background: var(--rgb) border-box;
+  border-color: var(--fg);
 }
 .shots img {
   display: block;
