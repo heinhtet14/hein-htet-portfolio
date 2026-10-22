@@ -765,124 +765,45 @@ footer button:hover {
   white-space: nowrap;
 }
 
-/* ---------- Scroll world ---------- */
-body {
-  overflow-x: clip;
+/* ---------- Live viewer ---------- */
+.live .viewer {
+  /* a little wider than the text column, never wider than the screen */
+  --vw: min(1100px, calc(100vw - 2 * var(--gutter)));
+  width: var(--vw);
+  margin: 18px 0 0 calc(50% - var(--vw) / 2);
+  aspect-ratio: 16 / 9;
+  border: 1px solid var(--rule);
 }
-.world {
-  position: relative;
-  width: 100vw;
-  height: 1900vh;
-  margin-left: calc(50% - 50vw);
-  padding: 0;
-  margin-top: clamp(48px, 8vw, 88px);
-  border-top: 1px solid var(--hair);
-  border-bottom: 1px solid var(--hair);
+.live .viewer[hidden] {
+  display: none;
 }
-.world-stage {
-  position: sticky;
-  top: 0;
-  height: 100vh;
-  height: 100svh;
-  overflow: hidden;
-}
-.world canvas {
+.live canvas {
   display: block;
   width: 100%;
   height: 100%;
 }
-.world-caps {
-  position: absolute;
-  left: max(var(--gutter), calc(50vw - 400px));
-  bottom: clamp(40px, 9vh, 96px);
-  width: min(420px, calc(100vw - 2 * var(--gutter)));
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  pointer-events: none;
+.scene-caps {
+  margin-top: 16px;
 }
-.world-caps li {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  padding: 16px 18px;
-  border: 1px solid var(--rule);
-  background: color-mix(in srgb, var(--bg) 88%, transparent);
-  backdrop-filter: blur(4px);
-  opacity: 0;
-  transform: translateY(8px);
-  transition:
-    opacity 0.35s,
-    transform 0.35s;
-}
-.world-caps li.on {
-  opacity: 1;
-  transform: none;
-}
-.world-caps .k {
+.scene-caps .k {
   color: var(--faint);
   font-size: 12px;
 }
-.world-caps h2 {
+.scene-caps h3 {
   margin: 4px 0 6px;
   font-size: 20px;
   font-weight: 600;
 }
-.world-caps p {
+.scene-caps p {
+  max-width: 62ch;
   margin: 0;
   color: var(--soft);
-  font-size: 13.5px;
+  font-size: 14px;
 }
-.world-bar {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 2px;
-  background: var(--hair);
-}
-.world-bar span {
-  display: block;
-  height: 100%;
-  width: 0;
-  background: var(--fg);
-}
-.world-hint {
-  position: absolute;
-  right: var(--gutter);
-  bottom: 24px;
-  margin: 0;
-  color: var(--faint);
-  font-size: 12px;
-  animation: blink 2s steps(1) infinite;
-}
-/* No WebGL or no JS: the captions become a plain list and the section stops being tall. */
-.world.flat {
-  height: auto;
-}
-.world.flat .world-stage {
-  position: static;
-  height: auto;
-  padding: 48px 0;
-}
-.world.flat canvas,
-.world.flat .world-bar,
-.world.flat .world-hint {
-  display: none;
-}
-.world.flat .world-caps {
-  position: static;
-  margin: 0 auto;
-  width: min(800px, 100%);
-  padding: 0 var(--gutter);
-  display: grid;
-  gap: 12px;
-}
-.world.flat .world-caps li {
-  position: static;
-  opacity: 1;
-  transform: none;
+@media (max-width: 700px) {
+  .live .viewer {
+    aspect-ratio: 4 / 3;
+  }
 }
 
 /* ---------- Activity heatmap ---------- */

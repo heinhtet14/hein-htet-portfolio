@@ -1,15 +1,16 @@
-// Scroll-scrubbed wireframe world. The camera flies chip → humanoid → the Magick Mind systems
-// (LLM → robot, voice, agent runtime, memory), then pulls out to show all of it. The system
-// diagrams stay deliberately high level: company work, so no internals.
-// Scroll position drives the camera; only small idle motions autoplay, and they stop under
-// prefers-reduced-motion. Camera keys and captions live in src/data/world-path.ts.
+// Live wireframe worlds: the edge boards, the humanoid and the Magick Mind systems (LLM → robot,
+// voice, agent runtime, memory) all sit in one scene; the camera holds one view per world and
+// glides between them when a tab is picked. The system diagrams stay deliberately high level:
+// company work, so no internals. Idle motions stop under prefers-reduced-motion.
+// Views and captions live in src/data/scenes.ts.
 import * as THREE from "three";
-import { KEYS, POS, RING_BACK, portals, type V3 } from "../data/world-path";
+import { POS, SCENES, type V3 } from "../data/scenes";
 
 type Mat = THREE.LineBasicMaterial | THREE.LineDashedMaterial | THREE.PointsMaterial | THREE.SpriteMaterial | THREE.MeshBasicMaterial;
 
 export interface WorldHandle {
-  setProgress(p: number): void;
+  /** glide the camera to SCENES[i] */
+  show(i: number): void;
   setRunning(on: boolean): void;
   dispose(): void;
 }
@@ -874,59 +875,26 @@ export function mountWorld(canvas: HTMLCanvasElement, opts: { reduced: boolean }
     scene.add(g);
   }
 
-  // ---------- camera path ----------
-  const posCurve = new THREE.CatmullRomCurve3(KEYS.map(([p]) => v3(p)), false, "centripetal");
-  const tgtCurve = new THREE.CatmullRomCurve3(KEYS.map(([, t]) => v3(t)), false, "centripetal");
-
-  // ---------- transitions: a portal ring on the sightline into each world ----------
-  for (const { stop, view } of portals()) {
-    const [cam, look] = view.map(v3);
-    const dir = look.clone().sub(cam).normalize();
-    const p = new THREE.Group();
-    p.position.copy(cam).addScaledVector(dir, -RING_BACK);
-    p.lookAt(look);
-    const R = 5.2;
-    p.add(ring(R, line(0.9)));
-    const inner = ring(R - 0.45, dashed(0.5), 120);
-    const ticks = new THREE.Group();
-    const tk: number[] = [];
-    for (let i = 0; i < 48; i++) {
-      const a = (i / 48) * Math.PI * 2, r1 = R + (i % 4 ? 0.35 : 0.8);
-      tk.push(Math.cos(a) * (R + 0.15), Math.sin(a) * (R + 0.15), 0, Math.cos(a) * r1, Math.sin(a) * r1, 0);
-    }
-    ticks.add(segs(tk, line(0.6)));
-    p.add(inner, ticks);
-    const lb = label(`→ ${stop.kicker}`, 0.5, 1, 600);
-    lb.sprite.position.set(0, R + 1.6, 0);
-    p.add(lb.sprite);
-    tickers.push((t) => {
-      inner.rotation.z = -t * 0.3;
-      ticks.rotation.z = t * 0.12;
-    });
-    scene.add(p);
-  }
-
-  // dust between the worlds, for a sense of speed while flying; kept out of the scenes themselves
-  {
-    const centres = Object.values(POS).map((c) => new THREE.Vector2(c[0], c[2]));
-    const d: number[] = [];
-    while (d.length < 2600 * 3) {
-      const x = -40 + rnd() * 440, y = -14 + rnd() * 46, z = -50 + rnd() * 100;
-      if (centres.some((c) => Math.hypot(c.x - x, c.y - z) < 22)) continue;
-      d.push(x, y, z);
-    }
-    scene.add(points(d, dots(0.1, 0.5)));
-  }
-
-  // The camera eases toward the scroll position instead of jumping with each wheel tick.
-  let target = 0, shown = 0, lastT = 0, pull = 1;
-  const look = new THREE.Vector3();
-  function place(dt: number) {
-    shown = opts.reduced || !running || dt <= 0 ? target : shown + (target - shown) * (1 - Math.exp(-dt * 4));
-    const p = THREE.MathUtils.clamp(shown, 0, 1);
-    tgtCurve.getPoint(p, look);
-    // narrow screens stand further back along the same sightline, so wide scenes still fit
-    camera.position.copy(posCurve.getPoint(p)).sub(look).multiplyScalar(pull).add(look);
+  // ---------- camera: one view per world, a short glide between them ----------
+  const views = SCENES.map((sc) => sc.view.map(v3) as [THREE.Vector3, THREE.Vector3]);
+  const from = [new THREE.Vector3(), new THREE.Vector3()];
+  let current = 0, glideStart = -1, pull = 1;
+  [from[0], from[1]] = [views[0][0].clone(), views[0][1].clone()];
+  const GLIDE = 1.4; // seconds
+  const ease = (u: number) => (u < 0.5 ? 4 * u * u * u : 1 - (-2 * u + 2) ** 3 / 2);
+  const pos = new THREE.Vector3(), look = new THREE.Vector3();
+  function place(now: number, t: number) {
+    const [cam, tgt] = views[current];
+    const u = glideStart < 0 ? 1 : Math.min(1, (now - glideStart) / 1000 / GLIDE);
+    const e = ease(u);
+    pos.lerpVectors(from[0], cam, e);
+    look.lerpVectors(from[1], tgt, e);
+    // rise a little mid-glide so long hops arc over the worlds instead of skimming them
+    pos.y += Math.sin(u * Math.PI) * Math.min(14, from[0].distanceTo(cam) * 0.12);
+    if (u >= 1) glideStart = -1;
+    // a slow sway so the view feels alive; narrow canvases stand further back
+    const off = pos.sub(look).multiplyScalar(pull).applyAxisAngle(new THREE.Vector3(0, 1, 0), opts.reduced ? 0 : Math.sin(t * 0.2) * 0.06);
+    camera.position.copy(look).add(off);
     camera.lookAt(look);
   }
 
@@ -936,9 +904,7 @@ export function mountWorld(canvas: HTMLCanvasElement, opts: { reduced: boolean }
     if (!w || !h) return;
     renderer.setSize(w, h, false);
     camera.aspect = w / h;
-    // narrow screens see the diagrams from further back
-    camera.fov = w < 700 ? 74 : 50;
-    pull = w < 700 ? 1.35 : 1;
+    pull = THREE.MathUtils.clamp(1.7 / camera.aspect, 1, 1.9);
     camera.updateProjectionMatrix();
   }
   const ro = new ResizeObserver(() => {
@@ -959,8 +925,7 @@ export function mountWorld(canvas: HTMLCanvasElement, opts: { reduced: boolean }
   function frame(now: number) {
     const t = opts.reduced ? 1.5 : (now - t0) / 1000;
     for (const f of tickers) f(t);
-    place(Math.min(0.1, (now - lastT) / 1000));
-    lastT = now;
+    place(now, t);
     renderer.render(scene, camera);
   }
   function loop(now: number) {
@@ -970,8 +935,14 @@ export function mountWorld(canvas: HTMLCanvasElement, opts: { reduced: boolean }
   frame(t0);
 
   return {
-    setProgress(p) {
-      target = p;
+    show(i) {
+      if (i === current || !views[i]) return;
+      // glide from wherever the camera is right now (even mid-glide)
+      from[0].copy(camera.position);
+      from[1].copy(look);
+      current = i;
+      glideStart = opts.reduced || !running ? -1 : performance.now();
+      if (glideStart < 0) [from[0], from[1]] = [views[i][0].clone(), views[i][1].clone()];
       if (!running) frame(performance.now());
     },
     setRunning(on) {

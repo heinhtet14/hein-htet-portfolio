@@ -4,7 +4,7 @@ Personal portfolio of Hein Htet: a black-and-white, monospace, datasheet-style s
 embedded ML, edge AI and edge LLMs. Work is filterable by "universe" (Edge AI & Embedded,
 Robotics, AI Systems, Backend, DevOps, Frontend).
 
-- **Astro**, static output, no UI framework. Pages: `/` (intro + scroll world), `/work`, `/about`, `/blog`, `/terminal`, all sharing `src/layouts/Page.astro` (header nav, contact footer). Each page loads only its own script from `src/scripts/` (`home.ts`, `work.ts`, `terminal.ts`).
+- **Astro**, static output, no UI framework. Pages: `/` (intro + live worlds), `/work`, `/about`, `/blog`, `/terminal`, all sharing `src/layouts/Page.astro` (header nav, contact footer). Each page loads only its own script from `src/scripts/` (`home.ts`, `work.ts`, `terminal.ts`).
 - **One serverless function**, `src/pages/api/ask.ts`. The terminal's `ask` command calls it,
   and it answers questions grounded only in `src/data/profile.ts`.
 
@@ -38,18 +38,19 @@ instance; move it to Vercel KV or Upstash if the endpoint gets abused.
 `worldlines` · `skills` · `contact` · `resume` · `ask <question>` · `clear`.
 Press `/` anywhere to focus it; ↑/↓ for history, Tab to complete.
 
-## Scroll world
+## Live worlds
 
-`src/scripts/world.ts` draws a wireframe Three.js world that the camera flies through as you
-scroll: edge chip → Tet Hlan humanoid → four Magick Mind systems drawn as labelled 3D
-blueprints with live data flow (LLM → robot beside the SO-ARM101, real-time voice, the
-Mindroid agent runtime, memory + knowledge) → pull-out. The diagrams are the `HANDS`,
-`VOICE`, `AGENT` and `MEMORY` specs at the top of that file. Keep them high level: this is
-company work, so name roles, not internal services, protocols or vendors.
-Camera keyframes and captions both live in `src/data/world-path.ts`; each caption shows
-while the camera is on its stop's keys. Three.js loads only when the section nears the
-viewport, idle motion stops under reduced motion, and without WebGL the captions become a
-plain list. Colours come from the page's `--fg`/`--bg`, so it follows light and dark mode.
+The home page's **Live** viewer (`src/scripts/world.ts`) draws a wireframe Three.js scene with
+six worlds: the Jetson Nano and Rockchip RK3588 boards, the Tet Hlan humanoid, and four Magick
+Mind systems drawn as simple animated glyphs with live data flow (LLM → robot beside the
+SO-ARM101, real-time voice, the Mindroid agent runtime, memory + knowledge). Tabs pick a world
+and the camera glides to it. The diagrams are the `HANDS`, `VOICE`, `AGENT` and `MEMORY` specs
+at the top of that file. Keep them high level: this is company work, so name roles, not
+internal services, protocols or vendors.
+Each world's camera view and caption live in `src/data/scenes.ts`. Three.js loads only when
+the viewer nears the screen, animates only while it is on screen, idle motion stops under
+reduced motion, and without WebGL only the tabs and captions show. Colours come from the
+page's `--fg`/`--bg`, so it follows light and dark mode.
 
 ## Blog
 

@@ -1,12 +1,10 @@
 ---
 import Page from "../layouts/Page.astro";
 import { profile, projects } from "../data/profile";
-import { STOPS, captionRanges } from "../data/world-path";
+import { SCENES } from "../data/scenes";
 import { KINDS, getPosts, isoDate } from "../data/blog";
 
 const latest = (await getPosts()).slice(0, 3);
-const ranges = captionRanges();
-const worldCaps = STOPS.map((s, i) => ({ ...s, ...ranges[i] }));
 // the three projects that best say what I do; the rest live on /work
 const FEATURED = ["edge-dl", "mindroid", "tet-hlan-rl"];
 const featured = FEATURED.map((slug) => projects.find((p) => p.slug === slug)!);
@@ -32,22 +30,30 @@ const featured = FEATURED.map((slug) => projects.find((p) => p.slug === slug)!);
     </ul>
   </section>
 
-  <section id="world" class="world" aria-label="A scroll-through world of my work">
-    <div class="world-stage">
-      <canvas id="world-canvas" aria-hidden="true"></canvas>
-      <ol class="world-caps">
-        {
-          worldCaps.map((c) => (
-            <li data-from={c.from} data-to={c.to}>
-              <span class="k">{c.kicker}</span>
-              <h2>{c.title}</h2>
-              <p>{c.body}</p>
-            </li>
-          ))
-        }
-      </ol>
-      <div class="world-bar" aria-hidden="true"><span id="world-bar"></span></div>
-      <p class="world-hint" aria-hidden="true">scroll ↓</p>
+  <section class="live" aria-labelledby="live-h">
+    <h2 class="eyebrow" id="live-h">Live <span>pick a world</span></h2>
+    <div class="filter" role="group" aria-label="Pick a world">
+      {
+        SCENES.map((sc, i) => (
+          <button type="button" data-scene={i} aria-pressed={i === 0 ? "true" : "false"}>
+            {sc.tab}
+          </button>
+        ))
+      }
+    </div>
+    <div class="viewer">
+      <canvas id="scene-canvas" aria-hidden="true"></canvas>
+    </div>
+    <div class="scene-caps" aria-live="polite">
+      {
+        SCENES.map((sc, i) => (
+          <div data-cap={i} hidden={i !== 0}>
+            <span class="k">{sc.kicker}</span>
+            <h3>{sc.title}</h3>
+            <p>{sc.body}</p>
+          </div>
+        ))
+      }
     </div>
   </section>
 

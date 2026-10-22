@@ -1,58 +1,47 @@
-// The home page's scroll world: three.js loads only when the section is near the screen.
+// The home page's live viewer: tabs pick a world; three.js loads only when the viewer is near
+// the screen and animates only while it is on screen.
+import type { WorldHandle } from "./world";
+
 const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
-const $ = <T extends HTMLElement>(sel: string) => document.querySelector<T>(sel)!;
+const viewer = document.querySelector<HTMLElement>(".viewer");
+const canvas = document.getElementById("scene-canvas") as HTMLCanvasElement | null;
+const tabs = [...document.querySelectorAll<HTMLButtonElement>("[data-scene]")];
+const caps = [...document.querySelectorAll<HTMLElement>("[data-cap]")];
+let world: WorldHandle | null = null;
+let current = 0;
 
-const worldEl = document.getElementById("world");
-const worldCanvas = document.getElementById("world-canvas") as HTMLCanvasElement | null;
-if (worldEl && worldCanvas) {
-  const caps = [...worldEl.querySelectorAll<HTMLLIElement>(".world-caps li")];
-  const bar = $("#world-bar");
-  const webgl = (() => {
-    try {
-      const c = document.createElement("canvas");
-      return Boolean(c.getContext("webgl2") || c.getContext("webgl"));
-    } catch {
-      return false;
-    }
-  })();
+function pick(i: number) {
+  current = i;
+  tabs.forEach((t, k) => t.setAttribute("aria-pressed", String(k === i)));
+  caps.forEach((c, k) => (c.hidden = k !== i));
+  world?.show(i);
+}
+tabs.forEach((t, i) => t.addEventListener("click", () => pick(i)));
 
-  if (!webgl) {
-    worldEl.classList.add("flat");
-  } else {
-    let world: import("./world").WorldHandle | null = null;
+const webgl = (() => {
+  try {
+    const c = document.createElement("canvas");
+    return Boolean(c.getContext("webgl2") || c.getContext("webgl"));
+  } catch {
+    return false;
+  }
+})();
+
+if (viewer && canvas) {
+  if (!webgl) viewer.hidden = true;
+  else {
     let visible = false;
-
-    const progress = () => {
-      const r = worldEl.getBoundingClientRect();
-      const span = worldEl.offsetHeight - innerHeight;
-      return span > 0 ? Math.min(1, Math.max(0, -r.top / span)) : 0;
-    };
-    const update = () => {
-      const p = progress();
-      world?.setProgress(p);
-      bar.style.width = `${(p * 100).toFixed(2)}%`;
-      for (const li of caps) li.classList.toggle("on", p >= Number(li.dataset.from) && p < Number(li.dataset.to));
-    };
-
-    // Load three.js only when the world is about to be seen; animate only while it is on screen.
-    const io = new IntersectionObserver(
+    new IntersectionObserver(
       async ([e]) => {
         visible = e.isIntersecting;
         if (visible && !world) {
           const { mountWorld } = await import("./world");
-          world = mountWorld(worldCanvas, { reduced });
-          update();
+          world = mountWorld(canvas, { reduced });
+          world.show(current);
         }
         world?.setRunning(visible && !reduced);
       },
-      { rootMargin: "50% 0px" },
-    );
-    io.observe(worldEl);
-    addEventListener("scroll", () => visible && requestAnimationFrame(update), { passive: true });
-    addEventListener("resize", update);
-    update();
+      { rootMargin: "25% 0px" },
+    ).observe(viewer);
   }
 }
-
-
-export {};
